@@ -37,6 +37,8 @@ namespace PreySense.Helpers
         private int _lastSetFanMode = -1;
         private int _lastSetCpuSpeed = -1;
         private int _lastSetGpuSpeed = -1;
+        private byte _activeUserPowerMode = 0x01;
+        private bool _quietEcOverrideActive = false;
         private Color[] _zoneColors = new Color[4] { 
             Color.FromArgb(0, 150, 255), 
             Color.FromArgb(0, 150, 255), 
@@ -156,6 +158,90 @@ namespace PreySense.Helpers
                 catch (Exception ex)
                 {
                     AppLogger.Log($"WMI {method}(0x{input:X}) FAILED: {ex.Message}");
+                    InvalidateCache();
+                    return (false, 0);
+                }
+            }
+        }
+
+        private (bool success, ulong output) SendCommandBytes(string method, byte[] inputBytes, ulong fallbackUlong)
+        {
+            lock (_lock)
+            {
+                try
+                {
+                    var obj = GetWmiObject();
+                    if (obj == null) return (false, 0);
+
+                    using var inParams = obj.GetMethodParameters(method);
+                    string inputName = "gmInput";
+                    foreach (var inProp in inParams.Properties.Cast<PropertyData>())
+                    {
+                        if (!inProp.Name.StartsWith("__"))
+                        {
+                            inputName = inProp.Name;
+                            break;
+                        }
+                    }
+
+                    var inputProp = inParams.Properties[inputName];
+                    if (inputProp.IsArray)
+                    {
+                        byte[] bytesToPass = inputBytes;
+                        try
+                        {
+                            foreach (QualifierData q in inputProp.Qualifiers)
+                            {
+                                if (string.Equals(q.Name, "MAX", StringComparison.OrdinalIgnoreCase) && q.Value != null)
+                                {
+                                    int maxLen = Convert.ToInt32(q.Value);
+                                    if (maxLen > 0 && inputBytes.Length != maxLen)
+                                    {
+                                        bytesToPass = new byte[maxLen];
+                                        Array.Copy(inputBytes, bytesToPass, Math.Min(inputBytes.Length, maxLen));
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                        catch { }
+                        inParams[inputName] = bytesToPass;
+                    }
+                    else
+                    {
+                        object typedInput = inputProp.Type switch
+                        {
+                            CimType.UInt32 => Convert.ToUInt32(fallbackUlong),
+                            CimType.UInt16 => Convert.ToUInt16(fallbackUlong),
+                            CimType.SInt32 => Convert.ToInt32(fallbackUlong),
+                            CimType.SInt64 => Convert.ToInt64(fallbackUlong),
+                            CimType.UInt64 => Convert.ToUInt64(fallbackUlong),
+                            _ => fallbackUlong
+                        };
+                        inParams[inputName] = typedInput;
+                    }
+
+                    using var outParams = obj.InvokeMethod(method, inParams, null);
+                    string outputName = "gmOutput";
+                    foreach (var outProp in outParams.Properties.Cast<PropertyData>())
+                    {
+                        if (outProp.Name != "ReturnValue" && !outProp.Name.StartsWith("__"))
+                        {
+                            outputName = outProp.Name;
+                            break;
+                        }
+                    }
+
+                    object outVal = outParams[outputName];
+                    if (outVal is byte[] outArr && outArr.Length > 0)
+                        return (outArr[0] == 0, outArr[0]);
+
+                    ulong result = Convert.ToUInt64(outVal);
+                    return ((result & 0xFF) == 0, result);
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Log($"WMI {method} (bytes/ulong=0x{fallbackUlong:X}) FAILED: {ex.Message}");
                     InvalidateCache();
                     return (false, 0);
                 }
@@ -341,11 +427,77 @@ namespace PreySense.Helpers
             ApplyZoneLighting();
         }
 
+        private void SyncHotkeyBacklightBrightness(int pct)
+        {
+            try
+            {
+                ulong? statusRaw = SendApgeCommand(AcerWmi.ApgeMethods.GetFunction, (ulong)(uint)(1 | (132 << 8) | 0xFFFF0000u));
+                if (!statusRaw.HasValue) return;
+                ulong status = statusRaw.Value >> 16;
+                ulong bVal = pct == 75 ? 72uL : (ulong)pct;
+                SendApgeCommand(AcerWmi.ApgeMethods.SetFunction, (ulong)(2 | (132 << 8)) | (status << 16) | (bVal << 32));
+            }
+            catch { }
+        }
+
+        private bool ApplyZoneLightingWmi()
+        {
+            int pct = Math.Clamp((int)_brightness, 0, 100);
+            byte[] kbBytes = new byte[16] { 0, 0, (byte)pct, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0 };
+            ulong kbUlong = (ulong)((long)pct << 16);
+            bool ok = SendCommandBytes("SetGamingKBBacklight", kbBytes, kbUlong).success;
+            for (int i = 0; i < 4; i++)
+            {
+                Color c = (_zoneColors != null && i < _zoneColors.Length) ? _zoneColors[i] : Color.FromArgb(_lastR, _lastG, _lastB);
+                byte r = (byte)(pct > 0 ? c.R : 0);
+                byte g = (byte)(pct > 0 ? c.G : 0);
+                byte b = (byte)(pct > 0 ? c.B : 0);
+                ulong rgbInput = (1uL << i) | ((ulong)r << 8) | ((ulong)g << 16) | ((ulong)b << 24);
+                ok |= SendCommand("SetGamingRgbKb", rgbInput).success;
+            }
+            ulong zoneMask = 8uL;
+            if (pct > 0)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    Color c2 = (_zoneColors != null && j < _zoneColors.Length) ? _zoneColors[j] : Color.FromArgb(_lastR, _lastG, _lastB);
+                    if (c2.R > 0 || c2.G > 0 || c2.B > 0)
+                        zoneMask |= 0x10000000000uL << j;
+                }
+            }
+            byte[] ledBytes = new byte[12];
+            BitConverter.GetBytes(zoneMask).CopyTo(ledBytes, 0);
+            SendCommandBytes("SetGamingLED", ledBytes, zoneMask);
+            SendCommand("SetGamingLEDBehavior", zoneMask);
+            SyncHotkeyBacklightBrightness(pct);
+            Color z0 = (_zoneColors != null && _zoneColors.Length > 0) ? _zoneColors[0] : Color.FromArgb(_lastR, _lastG, _lastB);
+            AppLogger.Log($"RGB: Applied WMI zone lighting (brightness={pct}%, zoneMask=0x{zoneMask:X}, z0=#{z0.R:X2}{z0.G:X2}{z0.B:X2}).");
+            return ok;
+        }
+
+        private bool ApplyDynamicLightingWmi(int mode)
+        {
+            int pct = Math.Clamp((int)_brightness, 0, 100);
+            byte patternId = (byte)Math.Clamp(mode, 1, 7);
+            byte speed = (byte)Math.Clamp((int)_speed, 1, 9);
+            byte dir = (byte)((mode == 3 || mode == 4) ? _direction : 0);
+            byte waveFlag = (byte)(mode == 3 ? 8 : 0);
+            byte[] dynBytes = new byte[16] { patternId, speed, (byte)pct, waveFlag, dir, _lastR, _lastG, _lastB, 3, 1, 0, 0, 0, 0, 0, 0 };
+            ulong dynUlong = (ulong)patternId | ((ulong)speed << 8) | ((ulong)pct << 16) | ((ulong)waveFlag << 24) | ((ulong)dir << 32) | ((ulong)_lastR << 40) | ((ulong)_lastG << 48) | ((ulong)_lastB << 56);
+            bool ok = SendCommandBytes("SetGamingKBBacklight", dynBytes, dynUlong).success;
+            SyncHotkeyBacklightBrightness(pct);
+            AppLogger.Log($"RGB: Applied WMI dynamic lighting (mode={mode}, brightness={pct}%, speed={speed}, dir={dir}).");
+            return ok;
+        }
+
         public void ApplyZoneLighting()
         {
             byte scaledBrightness = (byte)Math.Clamp((int)_brightness, 0, 100);
 
             if (EnekRgbClient.IsAvailable && EnekRgbClient.SetZoneColors(_zoneColors, scaledBrightness))
+                return;
+
+            if (ApplyZoneLightingWmi())
                 return;
 
             AppLogger.Log("ApplyZoneLighting: no supported RGB transport is available.");
@@ -389,6 +541,9 @@ namespace PreySense.Helpers
                     return;
                 }
             }
+
+            if (ApplyDynamicLightingWmi(mode))
+                return;
 
             AppLogger.Log($"ApplyLightingMode: no supported RGB transport is available (mode={mode}).");
         }
@@ -482,9 +637,14 @@ namespace PreySense.Helpers
             if (!success)
                 return false;
 
-            lock (_lock) { _lastSetFanMode = -1; }
+            lock (_lock)
+            {
+                _activeUserPowerMode = mode;
+                _quietEcOverrideActive = false;
+                _lastSetFanMode = -1;
+            }
             SyncWindowsPowerMode(mode);
-            if (TryGetPowerProfileWmi(out byte postMode) && postMode == mode)
+            if (TryGetRawEcPowerProfileWmi(out byte postMode) && postMode == mode)
                 AppLogger.Log($"[SetPowerMode-Diag] SUCCESS via WMI verified: mode=0x{mode:X2}");
             else
                 AppLogger.Log($"[SetPowerMode-Diag] Command sent for 0x{mode:X2}; hardware readback pending.");
@@ -508,7 +668,7 @@ namespace PreySense.Helpers
             return false;
         }
 
-        public bool TryGetPowerProfileWmi(out byte mode)
+        public bool TryGetRawEcPowerProfileWmi(out byte mode)
         {
             var (success, output) = SendCommand(AcerWmi.GamingMethods.GetMiscSetting, 0x0Bul);
             mode = (byte)((output >> 8) & 0xFF);
@@ -516,6 +676,28 @@ namespace PreySense.Helpers
                 return true;
 
             AppLogger.Log($"TryGetPowerProfileWmi: invalid mode 0x{mode:X2} (success={success}, output=0x{output:X}).");
+            return false;
+        }
+
+        public bool TryGetPowerProfileWmi(out byte mode)
+        {
+            lock (_lock)
+            {
+                if (_quietEcOverrideActive && IsKnownOperatingMode(_activeUserPowerMode))
+                {
+                    mode = _activeUserPowerMode;
+                    return true;
+                }
+            }
+            if (TryGetRawEcPowerProfileWmi(out mode))
+            {
+                lock (_lock)
+                {
+                    if (!_quietEcOverrideActive)
+                        _activeUserPowerMode = mode;
+                }
+                return true;
+            }
             return false;
         }
 

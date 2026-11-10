@@ -56,6 +56,9 @@ namespace PreySense.Frontend.ViewModels
                 IsBatteryLimitEnabled = cfg.Battery.ChargeLimitEnabled;
                 _usbChargingCutoffPercent = cfg.Battery.UsbPowerOffChargingCutoffPercent;
                 IsAcerServicesDebloated = cfg.General.AcerServicesDebloated;
+                IsTrayIconDisabled = cfg.General.DisableTrayIcon;
+                IsGlassEffectEnabled = cfg.General.GlassEffect;
+                IsLightTheme = cfg.General.LightTheme;
 
                 _suppressPowerProfile = true;
                 if (cfg.Session.AcPowerMode is 0 or 1 or 4 or 5 or 6)
@@ -88,6 +91,9 @@ namespace PreySense.Frontend.ViewModels
                     cfg.Display.AutoRefreshRate = IsAutoRefreshRateEnabled;
                     cfg.Battery.ChargeLimitEnabled = IsBatteryLimitEnabled;
                     cfg.General.AcerServicesDebloated = IsAcerServicesDebloated;
+                    cfg.General.DisableTrayIcon = IsTrayIconDisabled;
+                    cfg.General.GlassEffect = IsGlassEffectEnabled;
+                    cfg.General.LightTheme = IsLightTheme;
                     cfg.Session.AcPowerMode = ProfileManager.SourceProfileMode(AcPowerModeIndex);
                     cfg.Session.BatteryPowerMode = ProfileManager.BatterySourceProfileModeOrDefault(BatteryPowerModeIndex);
                     cfg.Battery.BatteryEnergySaver = IsBatteryEnergySaverEnabled;

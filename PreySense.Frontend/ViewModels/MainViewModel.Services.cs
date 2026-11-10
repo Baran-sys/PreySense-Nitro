@@ -22,6 +22,20 @@ namespace PreySense.Frontend.ViewModels
         // Platform Features
         [ObservableProperty] private bool _isRunOnStartupEnabled = false;
         [ObservableProperty] private bool _isBootSoundEnabled = false;
+        [ObservableProperty] private bool _isTrayIconDisabled = false;
+        internal Action<bool>? TrayIconVisibilityHandler { get; set; }
+
+        partial void OnIsTrayIconDisabledChanged(bool value)
+        {
+            if (_disposed) return;
+            try
+            {
+                PreySense.Core.Configuration.ConfigurationService.Instance.Update(cfg => cfg.General.DisableTrayIcon = value);
+            }
+            catch { }
+            TrayIconVisibilityHandler?.Invoke(!value);
+            DiagnosticMessage = value ? "Tray icon disabled." : "Tray icon enabled.";
+        }
 
         private int _startupPreferenceRevision;
         private int _startupPreferenceReads;

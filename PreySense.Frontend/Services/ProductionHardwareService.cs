@@ -51,7 +51,14 @@ namespace PreySense.Frontend.Services
             TelemetryCollector.Read(requested, this, fanOnly);
 
         CpuTelemetrySnapshot? ITelemetrySources.ReadCpuUsage() => CpuUsageMonitor.GetSnapshot(aggregateOnly: true);
-        int? ITelemetrySources.ReadCpuTemperature() => PreySense.Core.Hardware.CpuDriverRuntime.Telemetry?.ReadPackageTemperature();
+        int? ITelemetrySources.ReadCpuTemperature()
+        {
+            int? driverTemp = PreySense.Core.Hardware.CpuDriverRuntime.Telemetry?.ReadPackageTemperature();
+            if (driverTemp is > 0 and <= 125)
+                return driverTemp;
+            int wmiTemp = _wmi.CpuTemp;
+            return wmiTemp is > 0 and <= 125 ? wmiTemp : null;
+        }
         float? ITelemetrySources.ReadCpuVoltage() => PreySense.Core.Hardware.CpuDriverRuntime.Telemetry?.ReadCoreVoltageVid();
         float? ITelemetrySources.ReadCpuPower() => PreySense.Core.Hardware.CpuDriverRuntime.Telemetry?.ReadPackagePowerWatts();
         int? ITelemetrySources.ReadRamSpeed() => _memorySpeed.Value;
@@ -236,7 +243,7 @@ namespace PreySense.Frontend.Services
             }
         }
 
-        public bool IsRgbAvailable => _wmi.IsEnekRgbAvailable;
+        public bool IsRgbAvailable => _wmi.IsEnekRgbAvailable || _wmi.GetWmiObject() != null;
 
         public void SetRgbStatic(byte zone, Color color)
         {

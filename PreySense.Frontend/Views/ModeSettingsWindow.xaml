@@ -6,7 +6,7 @@
         xmlns:controls="clr-namespace:PreySense.Frontend.Controls"
         mc:Ignorable="d"
         Title="PreySense &#x2022; Tuning"
-        Width="500"
+        Width="455"
         SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         Foreground="{DynamicResource TextPrimaryBrush}"

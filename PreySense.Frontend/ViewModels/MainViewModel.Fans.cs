@@ -142,7 +142,7 @@ public partial class MainViewModel
             bool valid = FanCurveProfile.ValidTemperatures(telemetry.CpuTemp, telemetry.GpuTemp);
             if (Environment.TickCount64 < _fanModeSettlesAt || !valid) return;
             int gpuTemp = telemetry.GpuTemp is > 0 and <= 125 ? telemetry.GpuTemp : 0;
-            var (cpu, gpu, _) = _fanFollower.Evaluate(
+            var (cpu, gpu, _) = _fanFollower.EvaluateSmooth(
                 telemetry.CpuTemp, gpuTemp, _runningFanProfile.Stages,
                 _runningFanProfile.RampUpSeconds, Environment.TickCount64);
             if (_sentCpuFan == cpu && _sentGpuFan == gpu) return;

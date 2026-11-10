@@ -4,7 +4,12 @@
              x:Name="Root"
              Background="Transparent"
              HorizontalAlignment="Stretch">
-    <Grid Style="{DynamicResource WindowTitleBarStyle}" MouseLeftButtonDown="TitleBar_MouseDown">
+    <Grid x:Name="TitleBarGrid"
+          Style="{DynamicResource WindowTitleBarStyle}"
+          MouseLeftButtonDown="TitleBar_MouseDown"
+          MouseMove="TitleBar_MouseMove"
+          MouseLeftButtonUp="TitleBar_MouseUp"
+          LostMouseCapture="TitleBar_LostMouseCapture">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="Auto"/>

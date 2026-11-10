@@ -65,7 +65,7 @@ public partial class MainViewModel
         return _lastCpuBoostApplySucceeded;
     }
 
-    private async System.Threading.Tasks.Task<bool> ApplyCpuBoostForModeAsync(byte mode)
+    public async System.Threading.Tasks.Task<bool> ApplyCpuBoostForModeAsync(byte mode)
     {
         int boost = CpuBoostModeForMode(mode);
         CpuBoostMode = boost;

@@ -6,7 +6,7 @@
         xmlns:controls="clr-namespace:PreySense.Frontend.Controls"
         mc:Ignorable="d"
         Title="PreySense • Settings"
-        Width="480"
+        Width="445"
         SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         Foreground="{DynamicResource TextPrimaryBrush}"
@@ -36,6 +36,10 @@
                                                       IsChecked="{Binding IsRunOnStartupEnabled, Mode=TwoWay}" 
                                                       Command="{Binding ToggleRunOnStartupCommand}"/>
 
+                            <!-- Disable Tray Icon Toggle -->
+                            <controls:SettingSwitchRow Title="Disable Tray Icon"
+                                                      IsChecked="{Binding IsTrayIconDisabled, Mode=TwoWay}"/>
+
                             <controls:SettingDropdownRow x:Name="LanguageSelector"
                                                          Title="Language"
                                                          DropdownWidth="220"
@@ -52,6 +56,9 @@
                                                       OnText="Light"
                                                       OffText="Dark"
                                                       SwitchWidth="92"/>
+
+                            <controls:SettingSwitchRow Title="Liquid Glass Effect"
+                                                      IsChecked="{Binding IsGlassEffectEnabled, Mode=TwoWay}"/>
 
                             <controls:SettingSwitchRow Title="Acer Services"
                                                       IsChecked="{Binding IsAcerServicesEnabled, Mode=OneWay}"

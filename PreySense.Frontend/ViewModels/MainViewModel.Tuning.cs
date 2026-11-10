@@ -9,8 +9,7 @@ namespace PreySense.Frontend.ViewModels
         {
             var tuning = TuningStore.GetCurrent().Tuning;
             if (!tuning.HasFactoryDefaults || !tuning.FactoryDefaults.TryGetValue(TuningModeName(modeIndex), out var profile)
-                || profile.CpuPl1Watts is null || profile.CpuPl2Watts is null || profile.TauSeconds is null
-                || profile.GpuDeltaWatts is null || profile.GpuDynamicBoostWatts is null || profile.PlatformPowerOffsetWatts is null)
+                || profile.CpuPl1Watts is null || profile.CpuPl2Watts is null || profile.TauSeconds is null)
             {
                 DiagnosticMessage = "Capture factory defaults before resetting.";
                 return;
@@ -27,7 +26,7 @@ namespace PreySense.Frontend.ViewModels
             SetTauForModeIndex(modeIndex, profile.TauSeconds.Value);
             if (profile.EffectiveCpuBoostMode is int boost)
                 SetCpuBoostForModeIndex(modeIndex, boost);
-            if (GpuBasePowerWatts.HasValue)
+            if (GpuBasePowerWatts.HasValue && profile.GpuDeltaWatts is not null && profile.GpuDynamicBoostWatts is not null && profile.PlatformPowerOffsetWatts is not null)
                 StoreGpuOffsets(modeIndex, new(profile.GpuDeltaWatts.Value, profile.GpuDynamicBoostWatts.Value, profile.PlatformPowerOffsetWatts.Value));
 
             // Restore factory PROCHOT value and clear the apply switch.

@@ -1,6 +1,9 @@
+using System;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 
 namespace PreySense.Frontend.Controls
@@ -8,6 +11,30 @@ namespace PreySense.Frontend.Controls
     public partial class WindowTitleBar : UserControl
     {
         public const string Brand = "PreySense";
+
+        private bool _isDragging;
+        private POINT _dragStartCursor;
+        private RECT _dragStartRect;
+        private IntPtr _dragHwnd;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT { public int X; public int Y; }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+
+        [DllImport("user32.dll")]
+        private static extern bool GetCursorPos(out POINT lpPoint);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOZORDER = 0x0004;
+        private const uint SWP_NOACTIVATE = 0x0010;
 
         public WindowTitleBar()
         {
@@ -94,7 +121,60 @@ namespace PreySense.Frontend.Controls
             if (e.ChangedButton != MouseButton.Left || IsInsideButton(e.OriginalSource as DependencyObject))
                 return;
 
-            Window.GetWindow(this)?.DragMove();
+            var window = Window.GetWindow(this);
+            if (window == null)
+                return;
+
+            _dragHwnd = new WindowInteropHelper(window).Handle;
+            if (_dragHwnd != IntPtr.Zero && GetCursorPos(out _dragStartCursor) && GetWindowRect(_dragHwnd, out _dragStartRect))
+            {
+                _isDragging = true;
+                TitleBarGrid.CaptureMouse();
+                e.Handled = true;
+            }
+        }
+
+        private void TitleBar_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!_isDragging || _dragHwnd == IntPtr.Zero)
+                return;
+
+            if (e.LeftButton != MouseButtonState.Pressed)
+            {
+                EndDrag();
+                return;
+            }
+
+            if (GetCursorPos(out POINT cur) && GetWindowRect(_dragHwnd, out RECT currentRect))
+            {
+                int newX = currentRect.Left + (cur.X - _dragStartCursor.X);
+                int newY = currentRect.Top + (cur.Y - _dragStartCursor.Y);
+                _dragStartCursor = cur;
+                SetWindowPos(_dragHwnd, IntPtr.Zero, newX, newY, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+            }
+        }
+
+        private void TitleBar_MouseUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_isDragging)
+            {
+                EndDrag();
+                e.Handled = true;
+            }
+        }
+
+        private void TitleBar_LostMouseCapture(object sender, MouseEventArgs e)
+        {
+            _isDragging = false;
+            _dragHwnd = IntPtr.Zero;
+        }
+
+        private void EndDrag()
+        {
+            _isDragging = false;
+            _dragHwnd = IntPtr.Zero;
+            if (TitleBarGrid.IsMouseCaptured)
+                TitleBarGrid.ReleaseMouseCapture();
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)

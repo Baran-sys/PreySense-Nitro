@@ -95,7 +95,7 @@ namespace PreySense.Frontend.ViewModels
             Math.Clamp((int)Math.Round(value / (double)BrightnessStep) * BrightnessStep, 0, 100);
 
         private static byte ToHidKeyboardSpeed(int percent) =>
-            (byte)Math.Clamp((int)Math.Round(Math.Max(percent, 1) / 10.0), 1, 10);
+            (byte)Math.Clamp(1 + (int)Math.Round(Math.Clamp(percent, 0, 100) * 8.0 / 100.0), 1, 9);
 
         private static byte ToHidLogoSpeed(int percent) =>
             (byte)Math.Clamp((int)Math.Round(Math.Max(percent, 1) / 20.0), 1, 5);

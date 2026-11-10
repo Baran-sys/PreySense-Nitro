@@ -45,7 +45,7 @@ namespace PreySense.Tests
             string controls = File.ReadAllText(Path.Combine(root, "PreySense.Frontend", "Styles", "Controls.xaml"));
             string mainWindow = File.ReadAllText(Path.Combine(root, "PreySense.Frontend", "MainWindow.xaml"));
             Assert.Contains("x:Key=\"WindowFooterMargin\"", spacing);
-            Assert.Contains("14,10,14,16", spacing);
+            Assert.Contains("11,6,11,10", spacing);
             Assert.Contains("{StaticResource WindowFooterMargin}", controls);
             Assert.DoesNotContain("Margin=\"0,10,0,0\"", mainWindow);
         }

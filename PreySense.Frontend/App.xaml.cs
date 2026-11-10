@@ -54,6 +54,13 @@ namespace PreySense.Frontend
         private void StartApplication(StartupEventArgs e)
         {
             base.OnStartup(e);
+            try
+            {
+                string? exeDir = Path.GetDirectoryName(Environment.ProcessPath);
+                if (!string.IsNullOrWhiteSpace(exeDir) && Directory.Exists(exeDir))
+                    Directory.SetCurrentDirectory(exeDir);
+            }
+            catch { }
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             Deactivated += (_, _) =>
             {
@@ -131,7 +138,8 @@ namespace PreySense.Frontend
             ((ViewModels.MainViewModel)mainWindow.DataContext).NotifyApplicationReady();
             Services.OverlayBridge.StartIfNeeded();
 
-            _ = Services.UpdateCheckService.CheckForUpdatesAsync();
+            // Automatic startup update check disabled per user preference.
+            Services.MemoryOptimizer.SchedulePostStartupOptimization();
 
             if (startMinimized)
             {

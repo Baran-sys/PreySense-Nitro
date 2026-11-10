@@ -166,7 +166,7 @@ namespace PreySense.Frontend.Controls
 
         private void OnTextChanged(object sender, TextChangedEventArgs e)
         {
-            if (_syncingText)
+            if (_syncingText || InnerValueBox.IsKeyboardFocused)
                 return;
             if (!TryParse(InnerValueBox.Text, out double parsed))
                 return;

@@ -5,11 +5,11 @@
   <Thickness x:Key="SpacingMd">12</Thickness>
   <Thickness x:Key="SpacingLg">16</Thickness>
   <Thickness x:Key="SpacingXl">24</Thickness>
-  <Thickness x:Key="MarginSectionBottom">0,0,0,12</Thickness>
-  <Thickness x:Key="MarginControlBottom">0,0,0,8</Thickness>
-  <Thickness x:Key="MarginItemHorizontal">4,0,4,0</Thickness>
-  <Thickness x:Key="WindowContentMargin">14,10,14,8</Thickness>
-  <Thickness x:Key="WindowFooterMargin">14,10,14,16</Thickness>
+  <Thickness x:Key="MarginSectionBottom">0,0,0,8</Thickness>
+  <Thickness x:Key="MarginControlBottom">0,0,0,6</Thickness>
+  <Thickness x:Key="MarginItemHorizontal">3,0,3,0</Thickness>
+  <Thickness x:Key="WindowContentMargin">11,6,11,4</Thickness>
+  <Thickness x:Key="WindowFooterMargin">11,6,11,10</Thickness>
   <CornerRadius x:Key="RadiusSmall">4</CornerRadius>
   <CornerRadius x:Key="RadiusMedium">8</CornerRadius>
   <CornerRadius x:Key="RadiusCard">10</CornerRadius>

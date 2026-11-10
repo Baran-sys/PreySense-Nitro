@@ -129,6 +129,7 @@ namespace PreySense.Frontend.ViewModels
             _lightingWorker = new(ApplyLightingRequest,
                 (pending, latest) => latest with { Work = pending.Work | latest.Work });
             _isLightTheme = ThemeManager.LoadAndApply();
+            _isGlassEffectEnabled = ThemeManager.IsGlassEffectEnabled;
             AttachSessionLifecycleHooks();
 
             _dispatcher = Dispatcher.CurrentDispatcher;

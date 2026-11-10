@@ -5,6 +5,7 @@ public sealed class FanStage
 {
     public const int CpuMaxRpm = 6400;
     public const int GpuMaxRpm = 6400;
+    public const int MinManualRpmFloor = 2000;
     public const int DisabledTripCelsius = 127;
 
     public int CpuRiseC { get; set; }
@@ -39,6 +40,29 @@ public sealed class FanStage
 
     public static int DutyToRpm(int dutyPercent, int maxRpm) =>
         Math.Clamp((int)Math.Round(Math.Clamp(dutyPercent, 0, 100) * maxRpm / 100.0, MidpointRounding.AwayFromZero), 0, maxRpm);
+
+    /// <summary>
+    /// Converts a physical fan RPM target into an EC manual duty percentage (0% = Quiet Auto ~2200 RPM,
+    /// 1..100% = linear physical spin range from ~2000 RPM floor up to <paramref name="maxRpm"/>).
+    /// </summary>
+    public static int PhysicalRpmToDuty(int rpm, int maxRpm)
+    {
+        if (rpm <= 0) return 0;
+        if (rpm <= MinManualRpmFloor + 100) return 1;
+        double span = Math.Max(1, maxRpm - MinManualRpmFloor);
+        return Math.Clamp((int)Math.Round((Math.Clamp(rpm, MinManualRpmFloor, maxRpm) - MinManualRpmFloor) * 100.0 / span, MidpointRounding.AwayFromZero), 1, 100);
+    }
+
+    /// <summary>
+    /// Converts an EC manual duty percentage into the actual physical fan RPM on Acer Nitro/Predator hardware.
+    /// </summary>
+    public static int DutyToPhysicalRpm(int dutyPercent, int maxRpm)
+    {
+        int clamped = Math.Clamp(dutyPercent, 0, 100);
+        if (clamped <= 0) return 0;
+        double span = Math.Max(1, maxRpm - MinManualRpmFloor);
+        return Math.Clamp((int)Math.Round(MinManualRpmFloor + clamped * span / 100.0, MidpointRounding.AwayFromZero), MinManualRpmFloor, maxRpm);
+    }
 
     public FanStage Copy() => new()
     {

@@ -914,12 +914,13 @@ public sealed class PreySenseDriverBackend : ICpuDriverBackend, IPhysicalMemoryB
         }
     }
 
-    /// <summary>Intel vendor + known Raptor Lake host-bridge device IDs that expose MCHBAR at 0x48/0x4C.</summary>
+    /// <summary>Intel vendor + known Alder Lake / Raptor Lake host-bridge device IDs that expose MCHBAR at 0x48/0x4C.</summary>
     public static bool IsSupportedHostBridge(uint configId)
     {
         if ((configId & 0xFFFF) != 0x8086) return false;
         ushort device = (ushort)(configId >> 16);
-        return device is 0x7D1C or 0x4637 or 0x463B or 0x4647
+        return device is 0x7D1C or 0x4637 or 0x463B or 0x4647 or 0x4649
+            or 0x4641 or 0x4621 or 0x4601 or 0x4660 or 0x4668
             or 0xA702 or 0xA729 or 0xA728 or 0xA72A or 0xA719
             or 0xA700 or 0xA701 or 0xA703 or 0xA704 or 0xA705;
     }

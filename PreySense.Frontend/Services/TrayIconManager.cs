@@ -195,13 +195,15 @@ namespace PreySense.Frontend.Services
         private NOTIFYICONDATA _nid;
         private IntPtr _hIcon = IntPtr.Zero;
         private bool _isCreated = false;
+        private bool _isVisible = true;
         private bool _disposed = false;
 
-        public TrayIconManager(IntPtr hWnd, Action onOpen, Action onQuit)
+        public TrayIconManager(IntPtr hWnd, Action onOpen, Action onQuit, bool initiallyVisible = true)
         {
             _hWnd = hWnd;
             _onOpen = onOpen;
             _onQuit = onQuit;
+            _isVisible = initiallyVisible;
             _taskbarCreatedMsg = RegisterWindowMessage("TaskbarCreated");
 
             ApplyMenuTheme(ThemeManager.IsLightTheme);
@@ -224,11 +226,39 @@ namespace PreySense.Frontend.Services
                 szTip = "PreySense"
             };
 
-            _isCreated = Shell_NotifyIcon(NIM_ADD, ref _nid);
-            if (_isCreated)
+            if (_isVisible)
             {
-                _nid.uTimeoutOrVersion = NOTIFYICON_VERSION_4;
-                Shell_NotifyIcon(NIM_SETVERSION, ref _nid);
+                _isCreated = Shell_NotifyIcon(NIM_ADD, ref _nid);
+                if (_isCreated)
+                {
+                    _nid.uTimeoutOrVersion = NOTIFYICON_VERSION_4;
+                    Shell_NotifyIcon(NIM_SETVERSION, ref _nid);
+                }
+            }
+        }
+
+        public void SetVisible(bool visible)
+        {
+            if (_disposed || _isVisible == visible)
+                return;
+
+            _isVisible = visible;
+            if (visible)
+            {
+                if (!_isCreated)
+                {
+                    _isCreated = Shell_NotifyIcon(NIM_ADD, ref _nid);
+                    if (_isCreated)
+                    {
+                        _nid.uTimeoutOrVersion = NOTIFYICON_VERSION_4;
+                        Shell_NotifyIcon(NIM_SETVERSION, ref _nid);
+                    }
+                }
+            }
+            else if (_isCreated)
+            {
+                Shell_NotifyIcon(NIM_DELETE, ref _nid);
+                _isCreated = false;
             }
         }
 
@@ -265,9 +295,12 @@ namespace PreySense.Frontend.Services
 
             if (_taskbarCreatedMsg != 0 && msg == (int)_taskbarCreatedMsg)
             {
-                Shell_NotifyIcon(NIM_ADD, ref _nid);
-                _nid.uTimeoutOrVersion = NOTIFYICON_VERSION_4;
-                Shell_NotifyIcon(NIM_SETVERSION, ref _nid);
+                if (_isVisible)
+                {
+                    _isCreated = Shell_NotifyIcon(NIM_ADD, ref _nid);
+                    _nid.uTimeoutOrVersion = NOTIFYICON_VERSION_4;
+                    Shell_NotifyIcon(NIM_SETVERSION, ref _nid);
+                }
                 handled = true;
                 return IntPtr.Zero;
             }

@@ -2,15 +2,15 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sys="clr-namespace:System;assembly=mscorlib">
   <FontFamily x:Key="AppFontFamily">Segoe UI, -apple-system, sans-serif</FontFamily>
   <!-- One app text size for headings, labels, and body. Only dropdown/switch chrome uses FontSizeControl. -->
-  <Double x:Key="FontSizeBody" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">12</Double>
-  <Double x:Key="FontSizeControl" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">11</Double>
+  <Double x:Key="FontSizeBody" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">11.5</Double>
+  <Double x:Key="FontSizeControl" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">10.5</Double>
   <!-- Aliases kept so existing DynamicResource keys stay valid. -->
-  <Double x:Key="FontSizeSectionTitle" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">12</Double>
-  <Double x:Key="FontSizeTitle" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">12</Double>
-  <Double x:Key="FontSizeTelemetry" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">12</Double>
-  <Double x:Key="FontSizeTile" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">12</Double>
-  <Double x:Key="FontSizeCaption" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">12</Double>
-  <Double x:Key="FontSizeSmall" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">11</Double>
+  <Double x:Key="FontSizeSectionTitle" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">11.5</Double>
+  <Double x:Key="FontSizeTitle" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">11.5</Double>
+  <Double x:Key="FontSizeTelemetry" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">11.5</Double>
+  <Double x:Key="FontSizeTile" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">11</Double>
+  <Double x:Key="FontSizeCaption" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">11</Double>
+  <Double x:Key="FontSizeSmall" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">10.5</Double>
   <Style x:Key="BodyTextStyle" TargetType="{x:Type TextBlock}">
     <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
     <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />

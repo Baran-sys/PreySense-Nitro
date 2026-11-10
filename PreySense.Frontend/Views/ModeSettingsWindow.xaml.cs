@@ -210,12 +210,13 @@ namespace PreySense.Frontend.Views
 
         private void UpdateActionButtonsEnabled()
         {
+            bool tuningEnabled = DataContext is MainViewModel { IsHardwareTuningEnabled: true };
             bool anyLimits = SwitchApplyCpuLimits?.IsChecked == true || SwitchApplyGpuLimits?.IsChecked == true;
             bool prochotOnly = SwitchProchotOffset?.IsChecked == true;
-            bool canAct = anyLimits || prochotOnly;
+            bool canAct = tuningEnabled && (anyLimits || prochotOnly || DropdownCpuBoost?.SelectedIndex >= 0);
             if (BtnApply != null) BtnApply.IsEnabled = canAct;
             if (BtnSave != null) BtnSave.IsEnabled = canAct;
-            if (BtnReset != null) BtnReset.IsEnabled = canAct;
+            if (BtnReset != null) BtnReset.IsEnabled = tuningEnabled;
         }
 
         private void CommitSlider(System.Windows.Controls.Slider slider)
@@ -486,8 +487,37 @@ namespace PreySense.Frontend.Views
             }
             if (!Draft.ApplyCpuLimits && !Draft.ApplyGpuLimits && !applyProchot)
             {
-                SetVerificationText(Services.LocalizationService.Translate("Turn on CPU limits, GPU limits, or PROCHOT first."),
-                    TryFindResource("WarningTextBrush") as Brush ?? Brushes.OrangeRed);
+                StoreCpuBoost(vm);
+                byte boostMode = ModeIndexToByte(_selectedModeIndex);
+                if (persist)
+                {
+                    PreySense.Core.Configuration.ConfigurationService.Instance.Update(cfg =>
+                    {
+                        var p = boostMode switch
+                        {
+                            0 => cfg.Tuning.Quiet,
+                            1 => cfg.Tuning.Balanced,
+                            4 => cfg.Tuning.Performance,
+                            5 => cfg.Tuning.Turbo,
+                            6 => cfg.Tuning.Eco,
+                            _ => cfg.Tuning.Balanced
+                        };
+                        p.CpuBoostMode = Draft.CpuBoostMode;
+                        p.CpuBoost = Draft.CpuBoost;
+                        p.ApplyCpuLimits = false;
+                        p.ApplyGpuLimits = false;
+                    });
+                }
+                bool boostOk = vm.ActivePowerMode != boostMode || await vm.ApplyCpuBoostForModeAsync(boostMode);
+                SetVerificationText(
+                    boostOk
+                        ? Services.LocalizationService.Translate("Applied and read back successfully.")
+                        : Services.LocalizationService.Translate("Could not apply."),
+                    boostOk
+                        ? TryFindResource("SuccessTextBrush") as Brush ?? Brushes.LightGreen
+                        : TryFindResource("WarningTextBrush") as Brush ?? Brushes.OrangeRed);
+                _verificationTimer.Stop();
+                if (IsLoaded) _verificationTimer.Start();
                 return;
             }
             if (Draft.ApplyCpuLimits && !Draft.HasCpuLimitValues)

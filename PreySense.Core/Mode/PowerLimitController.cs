@@ -22,7 +22,10 @@ namespace PreySense.Mode
             int pl1Watts,
             int pl2Watts,
             bool pl2Enable = true,
-            int tauSeconds = PreySense.Core.Driver.CpuPowerLimitConfiguration.FactoryTauSeconds)
+            int tauSeconds = PreySense.Core.Driver.CpuPowerLimitConfiguration.FactoryTauSeconds,
+            int? staticPl1FloorWatts = null,
+            int? staticPl2FloorWatts = null,
+            bool restoreMsrToStaticFloor = false)
         {
             lock (CpuLimitGate)
             {
@@ -42,7 +45,7 @@ namespace PreySense.Mode
                 LastCpuPowerLimitStatus = "Cannot discover the supported CPU MCHBAR; nothing was written.";
                 return false;
             }
-            var result = driverController.ExecuteCombinedTransaction(mchbar, pl1Watts, pl2Watts, pl2Enable, tauSeconds);
+            var result = driverController.ExecuteCombinedTransaction(mchbar, pl1Watts, pl2Watts, pl2Enable, tauSeconds, staticPl1FloorWatts, staticPl2FloorWatts, restoreMsrToStaticFloor);
             LastCpuPowerLimitStatus = result.Status;
             AppLogger.Log(LastCpuPowerLimitStatus);
             return result.Success;

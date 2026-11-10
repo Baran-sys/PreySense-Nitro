@@ -112,6 +112,19 @@ public class ConfigurationJsonUsabilityTests
     }
 
     [TestMethod]
+    public void GlassEffect_DefaultFalse_CanBeSavedAndLoaded()
+    {
+        var service = new ConfigurationService(_path);
+        var config = service.GetCurrent();
+        Assert.IsFalse(config.General.GlassEffect);
+        config.General.GlassEffect = true;
+        service.Save(config);
+
+        var loaded = new ConfigurationService(_path).GetCurrent();
+        Assert.IsTrue(loaded.General.GlassEffect);
+    }
+
+    [TestMethod]
     public void Schema_DescribesTheCanonicalNamesAndNominalPower()
     {
         string root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));

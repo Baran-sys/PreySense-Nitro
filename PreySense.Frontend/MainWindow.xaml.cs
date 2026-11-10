@@ -38,12 +38,21 @@ namespace PreySense.Frontend
                         QueueAutoHide();
                     })
                     : null;
+                if (!IsVisible && !_isExplicitExit)
+                    MemoryOptimizer.ScheduleBackgroundTrim(delayMs: 300, aggressiveWorkingSetTrim: true);
             };
 
             var helper = new System.Windows.Interop.WindowInteropHelper(this);
             IntPtr hWnd = helper.EnsureHandle();
 
-            _trayIconManager = new Services.TrayIconManager(hWnd, onOpen: ShowAndRestore, onQuit: QuitApplication);
+            bool initialTrayVisible = true;
+            try
+            {
+                initialTrayVisible = !PreySense.Core.Configuration.ConfigurationService.Instance.GetCurrent().General.DisableTrayIcon;
+            }
+            catch { }
+
+            _trayIconManager = new Services.TrayIconManager(hWnd, onOpen: ShowAndRestore, onQuit: QuitApplication, initiallyVisible: initialTrayVisible);
             var source = System.Windows.Interop.HwndSource.FromHwnd(hWnd);
             source?.AddHook(_trayIconManager.WndProc);
             try { _hidArrivalWatcher = new Services.HidDeviceArrivalWatcher(hWnd); } catch { }
@@ -60,6 +69,7 @@ namespace PreySense.Frontend
             }
 
             var vm = new MainViewModel(hw);
+            vm.TrayIconVisibilityHandler = visible => _trayIconManager?.SetVisible(visible);
             DataContext = vm;
             ApplyResponsivePercentageSize();
 
@@ -167,8 +177,8 @@ namespace PreySense.Frontend
         private void ApplyResponsivePercentageSize()
         {
             var workArea = SystemParameters.WorkArea;
-            Width = 500;
-            double h = double.IsNaN(Height) || Height <= 0 ? 580 : Height;
+            Width = 455;
+            double h = double.IsNaN(Height) || Height <= 0 ? 500 : Height;
             Left = workArea.Left + (workArea.Width - Width) / 2;
             Top = Math.Max(workArea.Top + 40, workArea.Top + (workArea.Height - h) / 2);
         }
@@ -214,7 +224,11 @@ namespace PreySense.Frontend
                 window = new TWindow { Owner = this, DataContext = DataContext, ShowInTaskbar = false };
                 _toolWindows.Add(typeof(TWindow), window);
                 window.Activated += (_, _) => _lastActiveWindow = window;
-                window.Closed += (_, _) => _toolWindows.Remove(typeof(TWindow));
+                window.Closed += (_, _) =>
+                {
+                    _toolWindows.Remove(typeof(TWindow));
+                    MemoryOptimizer.ScheduleBackgroundTrim(delayMs: 250, aggressiveWorkingSetTrim: false);
+                };
             }
             window.Topmost = true;
             if (!window.IsVisible) window.Show();

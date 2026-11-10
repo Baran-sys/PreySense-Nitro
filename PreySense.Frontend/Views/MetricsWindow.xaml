@@ -6,7 +6,7 @@
         xmlns:controls="clr-namespace:PreySense.Frontend.Controls"
         mc:Ignorable="d"
         Title="PreySense • Overlay"
-        Width="540"
+        Width="480"
         SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         Foreground="{DynamicResource TextPrimaryBrush}"

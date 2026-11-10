@@ -54,6 +54,22 @@ public class FanCurveFollowerTests
     }
 
     [TestMethod]
+    public void RetreatHysteresisPreventsImmediateOscillationNearRiseTrip()
+    {
+        var follower = new FanCurveFollower();
+        var stages = Balanced();
+        // Stage 0 -> Stage 1 at CPU 56°C
+        var (_, _, stage) = follower.Evaluate(56, 40, stages, 0, 0);
+        Assert.AreEqual(1, stage);
+        // Dropping 1-2°C below 56°C (to 54°C) stays in stage 1 due to 3°C retreat hysteresis
+        (_, _, stage) = follower.Evaluate(54, 40, stages, 0, 1000);
+        Assert.AreEqual(1, stage);
+        // Dropping below 56 - 3 = 53°C (to 52°C) retreats back to stage 0 (0% Quiet Auto)
+        (_, _, stage) = follower.Evaluate(52, 40, stages, 0, 2000);
+        Assert.AreEqual(0, stage);
+    }
+
+    [TestMethod]
     public void StageChangesImmediatelyWithoutDelay()
     {
         var follower = new FanCurveFollower();
@@ -125,5 +141,31 @@ public class FanCurveFollowerTests
         Assert.AreEqual(FanControlMode.Custom, FanCurveStorage.DecodeControlMode(2, false, true, 0));
         Assert.AreEqual(FanControlMode.Auto, FanCurveStorage.DecodeControlMode(null, false, true, 1));
         Assert.AreEqual(FanControlMode.Max, FanCurveStorage.DecodeControlMode(null, true, true, 1));
+    }
+
+    [TestMethod]
+    public void EvaluateSmoothRampsGraduallyInsteadOfJumpingAbruptly()
+    {
+        var follower = new FanCurveFollower();
+        var stages = Balanced();
+
+        // Start cold in Stage 0 (0% Quiet Auto)
+        var (cpu0, _, stage0) = follower.EvaluateSmooth(44, 40, stages, 0, 1000);
+        Assert.AreEqual(0, stage0);
+        Assert.AreEqual(0, cpu0);
+
+        // Sudden jump in CPU temperature to 75°C:
+        // Instead of jumping immediately to 37%+, EvaluateSmooth filters temperature and slew-limits duty.
+        var (cpu1, _, _) = follower.EvaluateSmooth(75, 40, stages, 0, 2000);
+        var (cpu2, _, _) = follower.EvaluateSmooth(75, 40, stages, 0, 3000);
+        var (cpu3, _, _) = follower.EvaluateSmooth(75, 40, stages, 0, 4000);
+        var (cpu4, _, _) = follower.EvaluateSmooth(75, 40, stages, 0, 5000);
+        var (cpu5, _, _) = follower.EvaluateSmooth(75, 40, stages, 0, 6000);
+
+        // Brief spike for 1-2s stays in 0% Quiet Auto due to EMA smoothing + delay,
+        // then enters gently near the ~26% Quiet Auto floor and ramps up by at most 3%/sec.
+        Assert.AreEqual(0, cpu1);
+        Assert.IsLessThanOrEqualTo(29, cpu4, $"Expected gentle initial ramp from quiet floor, got {cpu4}%");
+        Assert.IsLessThanOrEqualTo(4, cpu5 - cpu4, $"Step per second after leaving floor should be bounded, got {cpu5 - cpu4}%");
     }
 }

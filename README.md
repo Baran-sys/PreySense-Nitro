@@ -1,8 +1,8 @@
-# <img src="PreySense.Frontend/appicon.svg" alt="PreySense logo" width="42" height="42" align="left"> PreySense
+# PreySense
 
-PreySense is a lightweight Windows control suite for Acer Predator laptops. It replaces Predator Sense with a faster UI, deeper hardware control, and a bundled kernel driver for CPU/GPU power tuning.
+PreySense is a lightweight Windows control suite for Acer laptops (Predator and Nitro series). It replaces heavy OEM software with a faster user interface, deeper hardware control, calibrated custom fan curves, and a bundled kernel driver for power tuning.
 
-Verified on **Acer Predator Helios Neo 16S (`PHN16S-71`)**. Other Predator models may work.
+Verified on **Acer Nitro 5 (`AN515-58`)** and **Acer Predator Helios Neo 16S (`PHN16S-71`)**.
 
 <p align="center">
   <img src="pics/Dashboard-v2.png" alt="PreySense dashboard" width="440">
@@ -10,82 +10,59 @@ Verified on **Acer Predator Helios Neo 16S (`PHN16S-71`)**. Other Predator model
 
 ## Features
 
-### Performance modes
-Quiet, Eco, Balanced, Performance, and Turbo with one-click switching. Source profiles can differ for AC and battery. The Predator key (beside Num Lock) shows or hides the app; hold it and press 1-5 to jump modes. The chassis Mode / Turbo key still cycles modes.
+### Performance Modes
+Quiet, Eco, Balanced, Performance, and Turbo with one-click switching. Separate profiles can be configured for AC power and battery. Chassis mode buttons and keyboard shortcuts are supported.
 
-### Hardware tuning
-Per-mode CPU and GPU power through the bundled **PreySenseDriver**:
-- CPU PL1, PL2, Tau, and CPU Boost
-- GPU Delta, Dynamic Boost, and platform power offset
-- Optional global PROCHOT offset
-- Factory calibration stored in `preysense.json`, with Reset to captured defaults
-- Apply for a live test, Save to persist; saved profiles follow mode changes, startup, and resume when Enable Tuning is on
+### Liquid Glass Interface
+Native Windows 11 DWM Acrylic backdrop integration with a dark obsidian glass aesthetic and specular highlights. Can be toggled on or off instantly in Settings.
 
-### GPU and display
-- GPU modes: Auto, iGPU Only, Hybrid, Advanced Optimus, and dGPU Only
-- Refresh rate control, Auto refresh rate to 60Hz on battery.
+### Hardware Tuning
+Per-mode CPU and GPU power management through the bundled PreySenseDriver:
+- CPU PL1, PL2, Tau time window, and CPU Boost mode control.
+- GPU power offsets, Dynamic Boost, and platform power delta.
+- Configurable global PROCHOT offset.
+- Hardware calibration and reset to captured factory defaults.
 
-### Fans
-Per-mode Auto, Max, or Custom EC-style stages for Eco, Quiet, Balanced, Performance, and Turbo. CPU/GPU graphs set separate temps and duties; both fans run at the higher duty, with a shared 0–5 s stage delay. Fans keep running while the app is in the tray.
+### Advanced Fan Curves
+- Multi-stage custom fan curves with physical RPM calibration.
+- Smooth step duty transitions to prevent abrupt fan noise spikes.
+- Independent GPU fan control with zero-RPM idle capability when cold.
+- Background curve follower that operates while minimized to system tray.
+
+### GPU and Display
+- GPU modes: Auto, iGPU Only, Hybrid, Advanced Optimus, and dGPU Only.
+- Display refresh rate control with automatic downscaling on battery power.
 
 ### Lighting
-Four-zone keyboard RGB plus cover logo lighting, with static colors, hardware effects, software animations, and optional logo sync.
+- Keyboard multi-zone RGB lighting with static colors and effects.
+- Cover logo lighting control on supported models.
 
-### Overlay
-Always-on-top telemetry with selectable CPU/GPU metrics, optional graphs, FPS, separate GPU Active / Effective clocks, and CPU VID when the driver can read it.
+### Telemetry and Overlay
+- Compact hardware telemetry overlay with selectable CPU and GPU metrics.
+- Low-overhead polling with optimized memory footprint.
 
-### Battery and system
-- Charge limit (80% or 100%).
-- Run on Windows startup, light/dark theme
-- Languages: English, Simplified Chinese, Hindi, Spanish, French
-
-## Screenshots
-
-| Lighting | Tuning |
-| :---: | :---: |
-| <img src="pics/Lighting.png" alt="Keyboard and logo lighting" width="420"> | <img src="pics/Power-Limits.png" alt="CPU and GPU power tuning" width="420"> |
-
-| Settings | Overlay editor |
-| :---: | :---: |
-| <img src="pics/Platform-Settings.png" alt="Platform settings" width="420"> | <img src="pics/Metrics.png" alt="Overlay metrics configuration" width="420"> |
-
-<p align="center">
-  <img src="pics/Overlay.png" alt="Hardware telemetry overlay" width="550">
-</p>
+### System Settings
+- Configurable battery charge limit (80% or 100%).
+- Disable tray icon toggle.
+- Windows logon startup task management.
+- Multi-language support: English, Simplified Chinese, Hindi, Spanish, French.
 
 ## Requirements
 
-- Windows 10 or 11 x64
-- Acer Predator laptop
-- [.NET 10 Desktop Runtime x64](https://dotnet.microsoft.com/download/dotnet/10.0)
-- Administrator privileges
+- Windows 10 or 11 x64 (Windows 11 22H2 or newer recommended for Acrylic Glass).
+- Compatible Acer laptop (Nitro or Predator series).
+- .NET 10 Desktop Runtime x64.
+- Administrator privileges.
 
-## Install
+## Building
 
-1. Uninstall any previous PreySense version (required when upgrading from v2).
-2. Download the latest `PreySense.exe` from [Releases](https://github.com/hammadzaigham/PreySense/releases).
-3. Run as administrator. Close official Predator Sense if it is running.
-4. Closing the window hides to the tray; use **Quit** to exit.
-
-Run on Startup is off when no scheduled task exists. It reflects this install’s enabled logon task (current-user principal, any interactive logon), not a JSON default. Existing enabled tasks are checked against the running executable and current launch settings; missing tasks and disabled tasks/triggers stay off until you enable startup. Logon launches minimized at HighestAvailable, without a delay, idle/network requirements, battery restrictions, or a runtime limit. Keep the executable in a permanent local folder. Registration failures are written to `debug.log`.
-
-## Quick start for tuning
-
-1. Open **Tuning** and turn on **Enable Tuning**.
-2. Choose a mode, set CPU/GPU values, then **Apply** or **Save**.
-3. Switch modes as usual; saved profiles follow automatically.
-
-Details: [driver tuning](docs/driver_tuning.md) · [v3.0.6](docs/releases/v3.0.6.md) · [v3.0.5](docs/releases/v3.0.5.md) · [v3.0.4](docs/releases/v3.0.4.md) · [v3.0.3](docs/releases/v3.0.3.md) · [v3.0.2](docs/releases/v3.0.2.md) · [v3.0.1](docs/releases/v3.0.1.md) · [v3.0.0](docs/releases/v3.0.0.md)
-
-## Build
-
-Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
+Requires the .NET 10 SDK:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .github\publish.ps1
 ```
 
-Output: `dist\PreySense.exe`
+Compiled single-file executable is generated at: `dist\PreySense.exe`.
 
 ## License
 

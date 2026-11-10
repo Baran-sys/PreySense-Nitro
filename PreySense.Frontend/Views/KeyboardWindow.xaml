@@ -6,7 +6,7 @@
         xmlns:controls="clr-namespace:PreySense.Frontend.Controls"
         mc:Ignorable="d"
         Title="PreySense • Lighting"
-        Width="500"
+        Width="455"
         SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         Foreground="{DynamicResource TextPrimaryBrush}"
@@ -259,8 +259,8 @@
                             </StackPanel>
 
                             <!-- Centered Color Wheel & Editable Hex Color Textbox -->
-                            <StackPanel HorizontalAlignment="Center" Margin="0,6,0,6">
-                                <controls:ColorWheelControl x:Name="ColorWheel" Width="140" Height="140" HorizontalAlignment="Center"
+                            <StackPanel HorizontalAlignment="Center" Margin="0,4,0,4">
+                                <controls:ColorWheelControl x:Name="ColorWheel" Width="120" Height="120" HorizontalAlignment="Center"
                                                             ColorChanged="ColorWheel_ColorChanged"/>
 
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,10,0,0">
@@ -482,8 +482,8 @@
                             </Grid>
 
                             <!-- Centered Color Wheel & Editable Hex Textbox for Logo -->
-                            <StackPanel HorizontalAlignment="Center" Margin="0,6,0,6">
-                                <controls:ColorWheelControl x:Name="CoverColorWheel" Width="140" Height="140" HorizontalAlignment="Center"
+                            <StackPanel HorizontalAlignment="Center" Margin="0,4,0,4">
+                                <controls:ColorWheelControl x:Name="CoverColorWheel" Width="120" Height="120" HorizontalAlignment="Center"
                                                             ColorChanged="CoverColorWheel_ColorChanged"/>
 
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,10,0,0">

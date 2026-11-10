@@ -62,6 +62,12 @@ namespace PreySense.Core.Configuration
 
         /// <summary>Whether hardware tuning controls are enabled.</summary>
         public bool HardwareTuningEnabled { get; set; } = false;
+
+        /// <summary>Whether the system tray icon is disabled (hidden).</summary>
+        public bool DisableTrayIcon { get; set; } = false;
+
+        /// <summary>Whether liquid glass (DWM acrylic blur) effect is enabled on application windows.</summary>
+        public bool GlassEffect { get; set; } = false;
     }
 
     public sealed class DisplayConfig

@@ -209,19 +209,42 @@ public partial class FanCurveWindow : Window
         RowTemp.Title = $"{fan} Temp";
         RowDuty.Title = $"{fan} Duty";
         RowRpm.Title = $"{fan} RPM";
-        var (minDuty, maxDuty) = WpfFanCurveControl.DutyBounds(_dutyValues, visible);
-        RowDuty.Minimum = minDuty;
-        RowDuty.Maximum = maxDuty;
+        RowDuty.Minimum = 0;
+        RowDuty.Maximum = 100;
+        int maxRpm = _gpu ? FanStage.GpuMaxRpm : FanStage.CpuMaxRpm;
+        RowRpm.Minimum = 0;
+        RowRpm.Maximum = maxRpm;
         var (minTemp, maxTemp) = WpfFanCurveControl.TemperatureBounds(_temperatureLabels, visible);
         RowTemp.Minimum = minTemp;
         RowTemp.Maximum = maxTemp;
         RowTemp.Value = celsius;
         int duty = stage.DutyPercent(_gpu);
-        int maxRpm = _gpu ? FanStage.GpuMaxRpm : FanStage.CpuMaxRpm;
         RowDuty.Value = duty;
-        RowRpm.Value = FanStage.DutyToRpm(duty, maxRpm);
+        RowRpm.Value = FanStage.DutyToPhysicalRpm(duty, maxRpm);
         _loading = false;
         UpdateEditor();
+    }
+
+    private void CascadeStageDuties(int changedVisibleIndex, int newDuty)
+    {
+        newDuty = Math.Clamp(newDuty, 0, 100);
+        _dutyValues[changedVisibleIndex] = newDuty;
+        for (int i = changedVisibleIndex + 1; i < _dutyValues.Length; i++)
+        {
+            if (_dutyValues[i] < _dutyValues[i - 1])
+                _dutyValues[i] = _dutyValues[i - 1];
+        }
+        for (int i = changedVisibleIndex - 1; i >= 0; i--)
+        {
+            if (_dutyValues[i] > _dutyValues[i + 1])
+                _dutyValues[i] = _dutyValues[i + 1];
+        }
+        for (int i = 0; i < _visibleStageIndices.Count && i < _dutyValues.Length; i++)
+        {
+            int stIdx = _visibleStageIndices[i];
+            _profile.Stages[stIdx].SetDuty(_gpu, _dutyValues[i]);
+            _profile.Stages[stIdx].Normalize();
+        }
     }
 
     private void StageField_Committed(object? sender, EventArgs e)
@@ -238,15 +261,13 @@ public partial class FanCurveWindow : Window
         }
         else if (ReferenceEquals(sender, RowDuty))
         {
-            WpfFanCurveControl.SetDuty(_dutyValues, visible, (int)Math.Round(RowDuty.Value));
-            stage.SetDuty(_gpu, _dutyValues[visible]);
+            CascadeStageDuties(visible, (int)Math.Round(RowDuty.Value));
         }
         else if (ReferenceEquals(sender, RowRpm))
         {
             int maxRpm = _gpu ? FanStage.GpuMaxRpm : FanStage.CpuMaxRpm;
-            int duty = FanStage.RpmToDuty((int)Math.Round(RowRpm.Value), maxRpm);
-            WpfFanCurveControl.SetDuty(_dutyValues, visible, duty);
-            stage.SetDuty(_gpu, _dutyValues[visible]);
+            int duty = FanStage.PhysicalRpmToDuty((int)Math.Round(RowRpm.Value), maxRpm);
+            CascadeStageDuties(visible, duty);
         }
 
         stage.Normalize();
@@ -342,9 +363,18 @@ public partial class FanCurveWindow : Window
         return System.Threading.Tasks.Task.Run(() => vm.SaveFanProfile(mode, snapshot));
     }
 
+    private void CommitActiveFields()
+    {
+        if (CustomOption.IsChecked != true || Curve.SelectedIndex < 0) return;
+        if (RowTemp.IsKeyboardFocusWithin) RowTemp.CommitText(notify: true);
+        if (RowDuty.IsKeyboardFocusWithin) RowDuty.CommitText(notify: true);
+        if (RowRpm.IsKeyboardFocusWithin) RowRpm.CommitText(notify: true);
+    }
+
     private async System.Threading.Tasks.Task SaveAllAsync()
     {
         if (Vm is not { } vm) return;
+        CommitActiveFields();
         SaveDraft();
         var snapshots = _drafts.Select(entry => (entry.Key, Profile: entry.Value.Copy())).ToArray();
         await System.Threading.Tasks.Task.Run(() =>

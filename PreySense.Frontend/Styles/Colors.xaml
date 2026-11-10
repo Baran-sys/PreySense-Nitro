@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Color x:Key="WindowBgColor">#1C1C1C</Color>
+  <Color x:Key="WindowBorderColor">#1C1C1C</Color>
   <Color x:Key="CardBgColor">#1C1C1C</Color>
   <Color x:Key="ButtonMainColor">#2E2E2E</Color>
   <Color x:Key="ButtonSecondColor">#242424</Color>
@@ -45,6 +46,7 @@
   <Color x:Key="ModeTurboColor">#FF2020</Color>
   <Color x:Key="ModeCustomColor">#FF8000</Color>
   <SolidColorBrush x:Key="WindowBgBrush" Color="{StaticResource WindowBgColor}" />
+  <SolidColorBrush x:Key="WindowBorderBrush" Color="{StaticResource WindowBorderColor}" />
   <SolidColorBrush x:Key="CardBgBrush" Color="{StaticResource CardBgColor}" />
   <SolidColorBrush x:Key="ButtonMainBrush" Color="{StaticResource ButtonMainColor}" />
   <SolidColorBrush x:Key="ButtonSecondBrush" Color="{StaticResource ButtonSecondColor}" />

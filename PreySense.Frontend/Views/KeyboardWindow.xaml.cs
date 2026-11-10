@@ -27,10 +27,21 @@ namespace PreySense.Frontend.Views
             {
                 BindLightingViewModel(vm);
 
-                // Tab Selection
+                // Tab Selection: hide Logo tab when cover logo hardware is absent on this model.
+                bool coverAvailable = vm.HardwareService is Services.ProductionHardwareService prod
+                    && (prod.Wmi.IsEnekRgbAvailable || prod.Wmi.IsCoverLogoHidAvailable);
                 if (TabLightingTarget != null)
                 {
-                    TabLightingTarget.SelectedIndex = vm.IsCoverTabSelected ? 1 : 0;
+                    if (!coverAvailable)
+                    {
+                        vm.SelectedLightingTab = 0;
+                        TabLightingTarget.Visibility = Visibility.Collapsed;
+                    }
+                    else
+                    {
+                        TabLightingTarget.Visibility = Visibility.Visible;
+                        TabLightingTarget.SelectedIndex = vm.IsCoverTabSelected ? 1 : 0;
+                    }
                 }
 
                 // Initialize Keyboard Color Wheel & Hex Input
