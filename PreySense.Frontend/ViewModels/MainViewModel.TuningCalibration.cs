@@ -85,6 +85,7 @@ public partial class MainViewModel
             });
             if (capture.GpuBaselineWatts.HasValue) GpuBasePowerWatts = capture.GpuBaselineWatts;
             OnPropertyChanged(nameof(IsGpuProfileTuningAvailable));
+            OnPropertyChanged(nameof(IsGpuClockTuningAvailable));
             OnPropertyChanged(nameof(ProchotActivationLabel));
             OnPropertyChanged(nameof(TjMaxLabel));
             var saved = TuningStore.GetCurrent();
@@ -208,7 +209,10 @@ public partial class MainViewModel
             GpuDynamicBoostWatts = saved.GpuDynamicBoostWatts ?? factory?.GpuDynamicBoostWatts,
             PlatformPowerOffsetWatts = saved.PlatformPowerOffsetWatts ?? factory?.PlatformPowerOffsetWatts,
             ApplyCpuLimits = saved.ApplyCpuLimits,
-            ApplyGpuLimits = saved.ApplyGpuLimits
+            ApplyGpuLimits = saved.ApplyGpuLimits,
+            GpuCoreClockOffsetMhz = saved.GpuCoreClockOffsetMhz ?? 0,
+            GpuMemoryClockOffsetMhz = saved.GpuMemoryClockOffsetMhz ?? 0,
+            ApplyGpuClockOffsets = saved.ApplyGpuClockOffsets
         };
     }
 
@@ -221,4 +225,8 @@ public partial class MainViewModel
     /// <summary>ERM4 GPU offsets were captured; otherwise GPU apply stays unavailable (CPU/PROCHOT only).</summary>
     public bool IsGpuProfileTuningAvailable =>
         TuningStore.GetCurrent().Tuning.HasFactoryGpuProfiles;
+
+    /// <summary>NVIDIA GPU is valid and P0 clock offset tuning is supported.</summary>
+    public bool IsGpuClockTuningAvailable =>
+        Gpu.NvidiaGpuControl.Shared.IsValid && Gpu.NvidiaGpuControl.Shared.IsClockTuningSupported;
 }

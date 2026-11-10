@@ -204,12 +204,16 @@ namespace PreySense.Core.Configuration
         public bool HasGpuLimitValues => GpuDeltaWatts.HasValue && GpuDynamicBoostWatts.HasValue
             && PlatformPowerOffsetWatts.HasValue;
 
+        [System.Text.Json.Serialization.JsonIgnore]
+        public bool HasGpuClockValues => GpuCoreClockOffsetMhz.HasValue && GpuMemoryClockOffsetMhz.HasValue;
+
         /// <summary>True when at least one apply flag is on and that side has complete values.</summary>
         [System.Text.Json.Serialization.JsonIgnore]
         public bool HasValues =>
-            (ApplyCpuLimits || ApplyGpuLimits)
+            (ApplyCpuLimits || ApplyGpuLimits || ApplyGpuClockOffsets)
             && (!ApplyCpuLimits || HasCpuLimitValues)
-            && (!ApplyGpuLimits || HasGpuLimitValues);
+            && (!ApplyGpuLimits || HasGpuLimitValues)
+            && (!ApplyGpuClockOffsets || HasGpuClockValues);
 
         /// <summary>Windows PERFBOOSTMODE 0–6 from <see cref="CpuBoostMode"/>, or legacy on/off <see cref="CpuBoost"/>.</summary>
         [System.Text.Json.Serialization.JsonIgnore]
@@ -266,6 +270,18 @@ namespace PreySense.Core.Configuration
         /// <summary>Apply GPU limits flag for this profile.</summary>
         [JsonPropertyOrder(6)]
         public bool ApplyGpuLimits { get; set; } = false;
+
+        /// <summary>GPU core clock offset in MHz (-200..+250).</summary>
+        [JsonPropertyOrder(11)]
+        public int? GpuCoreClockOffsetMhz { get; set; }
+
+        /// <summary>GPU memory clock offset in MHz (-500..+1000).</summary>
+        [JsonPropertyOrder(12)]
+        public int? GpuMemoryClockOffsetMhz { get; set; }
+
+        /// <summary>Apply GPU clock offsets flag for this profile.</summary>
+        [JsonPropertyOrder(13)]
+        public bool ApplyGpuClockOffsets { get; set; } = false;
     }
 
     public sealed class FanConfig

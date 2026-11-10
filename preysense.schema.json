@@ -574,6 +574,33 @@
           "maximum": 100,
           "multipleOf": 5,
           "description": "Acer ERM4 CP offset. This does not add to the nominal GPU wattage reference."
+        },
+        "GpuCoreClockOffsetMhz": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -200,
+          "maximum": 250,
+          "multipleOf": 10,
+          "title": "GPU Core Clock Offset (MHz)",
+          "description": "GPU core clock offset in MHz."
+        },
+        "GpuMemoryClockOffsetMhz": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -500,
+          "maximum": 1000,
+          "multipleOf": 50,
+          "title": "GPU Memory Clock Offset (MHz)",
+          "description": "GPU memory clock offset in MHz."
+        },
+        "ApplyGpuClockOffsets": {
+          "type": "boolean",
+          "title": "Apply GPU Clock Offsets",
+          "description": "Whether custom GPU clock offsets are applied for this mode."
         }
       }
     },

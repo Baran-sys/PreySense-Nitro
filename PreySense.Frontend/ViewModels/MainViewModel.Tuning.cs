@@ -28,6 +28,7 @@ namespace PreySense.Frontend.ViewModels
                 SetCpuBoostForModeIndex(modeIndex, boost);
             if (GpuBasePowerWatts.HasValue && profile.GpuDeltaWatts is not null && profile.GpuDynamicBoostWatts is not null && profile.PlatformPowerOffsetWatts is not null)
                 StoreGpuOffsets(modeIndex, new(profile.GpuDeltaWatts.Value, profile.GpuDynamicBoostWatts.Value, profile.PlatformPowerOffsetWatts.Value));
+            SetGpuClocksForModeIndex(modeIndex, 0, 0);
 
             // Restore factory PROCHOT value and clear the apply switch.
             ProchotOffsetCelsius = tuning.FactoryProchotOffsetCelsius;
@@ -64,6 +65,50 @@ namespace PreySense.Frontend.ViewModels
         [ObservableProperty] private int _customPerfPl2 = CpuPowerLimitConfiguration.FactoryPerformancePl2;
         [ObservableProperty] private int _customTurboPl1 = CpuPowerLimitConfiguration.FactoryTurboPl1;
         [ObservableProperty] private int _customTurboPl2 = CpuPowerLimitConfiguration.FactoryTurboPl2;
+
+        // Per-mode GPU clock offsets (Core and Memory MHz)
+        [ObservableProperty] private int _customQuietGpuCore = 0;
+        [ObservableProperty] private int _customQuietGpuMemory = 0;
+        [ObservableProperty] private int _customEcoGpuCore = 0;
+        [ObservableProperty] private int _customEcoGpuMemory = 0;
+        [ObservableProperty] private int _customBalancedGpuCore = 0;
+        [ObservableProperty] private int _customBalancedGpuMemory = 0;
+        [ObservableProperty] private int _customPerfGpuCore = 0;
+        [ObservableProperty] private int _customPerfGpuMemory = 0;
+        [ObservableProperty] private int _customTurboGpuCore = 0;
+        [ObservableProperty] private int _customTurboGpuMemory = 0;
+
+        public (int Core, int Memory) GpuClocksForMode(byte mode) => mode switch
+        {
+            0x05 => (CustomTurboGpuCore, CustomTurboGpuMemory),
+            0x04 => (CustomPerfGpuCore, CustomPerfGpuMemory),
+            0x01 => (CustomBalancedGpuCore, CustomBalancedGpuMemory),
+            0x06 => (CustomEcoGpuCore, CustomEcoGpuMemory),
+            _ => (CustomQuietGpuCore, CustomQuietGpuMemory)
+        };
+
+        public (int Core, int Memory) GpuClocksForModeIndex(int modeIndex) => modeIndex switch
+        {
+            0 => (CustomEcoGpuCore, CustomEcoGpuMemory),
+            1 => (CustomQuietGpuCore, CustomQuietGpuMemory),
+            2 => (CustomBalancedGpuCore, CustomBalancedGpuMemory),
+            3 => (CustomPerfGpuCore, CustomPerfGpuMemory),
+            _ => (CustomTurboGpuCore, CustomTurboGpuMemory)
+        };
+
+        public void SetGpuClocksForModeIndex(int modeIndex, int core, int memory)
+        {
+            int c = Math.Clamp(core, PreySense.Gpu.NvidiaGpuControl.MinCoreOffset, PreySense.Gpu.NvidiaGpuControl.MaxCoreOffset);
+            int m = Math.Clamp(memory, PreySense.Gpu.NvidiaGpuControl.MinMemoryOffset, PreySense.Gpu.NvidiaGpuControl.MaxMemoryOffset);
+            switch (modeIndex)
+            {
+                case 0: CustomEcoGpuCore = c; CustomEcoGpuMemory = m; break;
+                case 1: CustomQuietGpuCore = c; CustomQuietGpuMemory = m; break;
+                case 2: CustomBalancedGpuCore = c; CustomBalancedGpuMemory = m; break;
+                case 3: CustomPerfGpuCore = c; CustomPerfGpuMemory = m; break;
+                default: CustomTurboGpuCore = c; CustomTurboGpuMemory = m; break;
+            }
+        }
 
         public void RefreshLocalizedText()
         {

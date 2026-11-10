@@ -51,6 +51,14 @@ CPU and PROCHOT tuning work without ERM4. GPU profile apply requires ERM4 GPU by
 
 GPU thermal-trip editing and injected ACPI controls are removed. Temperature telemetry and NVIDIA thermal-throttle reporting are unchanged.
 
+## GPU clock tuning (NVAPI)
+
+PreySense supports per-mode GPU Core and Memory clock offsets via NVAPI `SetPerformanceStates20` (P0 3D Performance). This tuning path does not require Acer ERM4 tables and is fully functional on both Acer Nitro and Predator laptops with discrete NVIDIA graphics:
+
+- Core Clock Offset: -200 MHz to +250 MHz (10 MHz steps)
+- Memory Clock Offset: -500 MHz to +1000 MHz (50 MHz steps)
+- Safe fallback: Offsets automatically reset to stock (0 MHz) on application exit or shutdown.
+
 ## Audit references and limits
 
 The package-limit register at MCHBAR + `0x59A0` is documented by [Intel's 13th-generation register reference](https://edc.intel.com/content/www/us/en/design/publications/13th-generation-core-processors-datasheet-volume-2-of-2/package-power-limit-package-rapl-limit-0-0-0-mchbar-pcu-offset-59a0/). Its lock makes the settings read-only; it does not prohibit reading them. The 7-bit time window follows `2^Y × (1 + F/4) × TimeUnit`, including encoded zero. Live calibration decodes zero rather than substituting a 56-second default; the editor then rounds/snaps the captured seconds to its supported selections. The apply API's `tauEncoded == 0` convention (preserve the previous window) is separate from hardware decoding.

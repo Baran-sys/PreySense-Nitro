@@ -29,6 +29,10 @@ namespace PreySense.Frontend
             AppDomain.CurrentDomain.UnhandledException += (_, args) =>
                 Services.StartupDiagnostics.CreateReport(args.ExceptionObject as Exception
                     ?? new Exception(args.ExceptionObject?.ToString() ?? "Unknown application failure."));
+            AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+            {
+                try { PreySense.Gpu.NvidiaGpuControl.Shared.ResetClocks(); } catch { }
+            };
         }
 
         protected override void OnStartup(StartupEventArgs e)
@@ -163,6 +167,7 @@ namespace PreySense.Frontend
                 if (MainWindow?.DataContext is ViewModels.MainViewModel vm)
                     vm.PersistSessionSettings();
                 Views.ModeToastWindow.Shutdown();
+                PreySense.Gpu.NvidiaGpuControl.Shared.ResetClocks();
             }
             catch (Exception ex) { AppLogger.Error($"Application exit cleanup failed: {ex}"); }
             finally

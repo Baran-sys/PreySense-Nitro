@@ -290,6 +290,14 @@ namespace PreySense.Core.Configuration
 
             if (mode.PlatformPowerOffsetWatts is < 0 or > 100 || (mode.PlatformPowerOffsetWatts is int platform && platform % 5 != 0))
                 throw new ArgumentOutOfRangeException($"Tuning.{modeName}.PlatformPowerOffsetWatts", $"Platform power offset for {modeName} must be 0–100W in steps of 5.");
+
+            if (mode.GpuCoreClockOffsetMhz is < -200 or > 250)
+                throw new ArgumentOutOfRangeException($"Tuning.{modeName}.GpuCoreClockOffsetMhz",
+                    $"GPU core clock offset for {modeName} must be between -200MHz and +250MHz.");
+
+            if (mode.GpuMemoryClockOffsetMhz is < -500 or > 1000)
+                throw new ArgumentOutOfRangeException($"Tuning.{modeName}.GpuMemoryClockOffsetMhz",
+                    $"GPU memory clock offset for {modeName} must be between -500MHz and +1000MHz.");
         }
 
         /// <summary>Promotes legacy boost bools and snaps factory GPU offsets to apply-legal steps.</summary>
@@ -309,6 +317,11 @@ namespace PreySense.Core.Configuration
                 mode.GpuDynamicBoostWatts = Hardware.DriverFactoryCalibration.SnapGpuDynamicBoost(rawDb);
             if (mode.PlatformPowerOffsetWatts is int rawPlatform)
                 mode.PlatformPowerOffsetWatts = Hardware.DriverFactoryCalibration.SnapPlatformPowerOffset(rawPlatform);
+
+            if (mode.GpuCoreClockOffsetMhz is int rawCore)
+                mode.GpuCoreClockOffsetMhz = Math.Clamp((int)Math.Round(rawCore / 10.0) * 10, -200, 250);
+            if (mode.GpuMemoryClockOffsetMhz is int rawMem)
+                mode.GpuMemoryClockOffsetMhz = Math.Clamp((int)Math.Round(rawMem / 50.0) * 50, -500, 1000);
         }
 
         private PreySenseConfig LoadOrInitialize()

@@ -125,6 +125,37 @@ public class ConfigurationJsonUsabilityTests
     }
 
     [TestMethod]
+    public void GpuClockTuning_CanBeSavedAndLoaded()
+    {
+        var service = new ConfigurationService(_path);
+        var config = service.GetCurrent();
+        config.Tuning.Turbo.GpuCoreClockOffsetMhz = 120;
+        config.Tuning.Turbo.GpuMemoryClockOffsetMhz = 350;
+        config.Tuning.Turbo.ApplyGpuClockOffsets = true;
+        service.Save(config);
+
+        var loaded = new ConfigurationService(_path).GetCurrent();
+        Assert.AreEqual(120, loaded.Tuning.Turbo.GpuCoreClockOffsetMhz);
+        Assert.AreEqual(350, loaded.Tuning.Turbo.GpuMemoryClockOffsetMhz);
+        Assert.IsTrue(loaded.Tuning.Turbo.ApplyGpuClockOffsets);
+        Assert.IsTrue(loaded.Tuning.Turbo.HasGpuClockValues);
+    }
+
+    [TestMethod]
+    public void GpuClockTuning_SnapFunctions_ClampAndStep()
+    {
+        Assert.AreEqual(100, PreySense.Frontend.Views.ModeSettingsWindow.SnapGpuCoreClock(104));
+        Assert.AreEqual(110, PreySense.Frontend.Views.ModeSettingsWindow.SnapGpuCoreClock(106));
+        Assert.AreEqual(250, PreySense.Frontend.Views.ModeSettingsWindow.SnapGpuCoreClock(300));
+        Assert.AreEqual(-200, PreySense.Frontend.Views.ModeSettingsWindow.SnapGpuCoreClock(-250));
+
+        Assert.AreEqual(350, PreySense.Frontend.Views.ModeSettingsWindow.SnapGpuMemoryClock(340));
+        Assert.AreEqual(350, PreySense.Frontend.Views.ModeSettingsWindow.SnapGpuMemoryClock(360));
+        Assert.AreEqual(1000, PreySense.Frontend.Views.ModeSettingsWindow.SnapGpuMemoryClock(1200));
+        Assert.AreEqual(-500, PreySense.Frontend.Views.ModeSettingsWindow.SnapGpuMemoryClock(-600));
+    }
+
+    [TestMethod]
     public void Schema_DescribesTheCanonicalNamesAndNominalPower()
     {
         string root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
@@ -132,6 +163,9 @@ public class ConfigurationJsonUsabilityTests
         var mode = schema.RootElement.GetProperty("definitions").GetProperty("ModeTuning").GetProperty("properties");
         Assert.IsTrue(mode.TryGetProperty("CpuTurboTimeLimitSeconds", out _));
         Assert.IsTrue(mode.TryGetProperty("GpuPowerOffsetWatts", out _));
+        Assert.IsTrue(mode.TryGetProperty("GpuCoreClockOffsetMhz", out _));
+        Assert.IsTrue(mode.TryGetProperty("GpuMemoryClockOffsetMhz", out _));
+        Assert.IsTrue(mode.TryGetProperty("ApplyGpuClockOffsets", out _));
         Assert.Contains("not an enforced", mode.GetProperty("GpuNominalPowerWatts").GetProperty("description").GetString()!);
         Assert.AreEqual(2, schema.RootElement.GetProperty("properties").GetProperty("SchemaVersion").GetProperty("const").GetInt32());
     }

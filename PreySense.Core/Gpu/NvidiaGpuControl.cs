@@ -406,6 +406,96 @@ namespace PreySense.Gpu
             return null;
         }
 
+        public const int MinCoreOffset = -200;
+        public const int MaxCoreOffset = 250;
+        public const int MinMemoryOffset = -500;
+        public const int MaxMemoryOffset = 1000;
+
+        public bool IsClockTuningSupported
+        {
+            get
+            {
+                if (!IsValid || _internalGpu is null) return false;
+                try
+                {
+                    var states = GPUApi.GetPerformanceStates20(_internalGpu.Handle);
+                    return states.IsEditable;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+        }
+
+        public bool GetClocks(out int core, out int memory, bool forceWake = false)
+        {
+            core = 0;
+            memory = 0;
+            if (!IsValid || _internalGpu is null) return false;
+
+            if (!forceWake)
+            {
+                var state = GetGpuState();
+                if (state != GpuState.Active) return false;
+            }
+
+            try
+            {
+                IPerformanceStates20Info states = GPUApi.GetPerformanceStates20(_internalGpu.Handle);
+                if (!states.Clocks.TryGetValue(PerformanceStateId.P0_3DPerformance, out var p0Clocks) || p0Clocks == null)
+                    return false;
+
+                var coreClock = p0Clocks.FirstOrDefault(c => c.DomainId == PublicClockDomain.Graphics);
+                var memoryClock = p0Clocks.FirstOrDefault(c => c.DomainId == PublicClockDomain.Memory);
+                if (coreClock == null || memoryClock == null) return false;
+
+                core = coreClock.FrequencyDeltaInkHz.DeltaValue / 1000;
+                memory = memoryClock.FrequencyDeltaInkHz.DeltaValue / 1000;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Log("GET GPU CLOCKS: " + ex.Message);
+                return false;
+            }
+        }
+
+        public int SetClocks(int core, int memory)
+        {
+            core = Math.Clamp(core, MinCoreOffset, MaxCoreOffset);
+            memory = Math.Clamp(memory, MinMemoryOffset, MaxMemoryOffset);
+
+            if (!IsValid || _internalGpu is null) return -1;
+
+            try
+            {
+                var coreClock = new PerformanceStates20ClockEntryV1(PublicClockDomain.Graphics, new PerformanceStates20ParameterDelta(core * 1000));
+                var memoryClock = new PerformanceStates20ClockEntryV1(PublicClockDomain.Memory, new PerformanceStates20ParameterDelta(memory * 1000));
+                PerformanceStates20ClockEntryV1[] clocks = { coreClock, memoryClock };
+                PerformanceStates20BaseVoltageEntryV1[] voltages = Array.Empty<PerformanceStates20BaseVoltageEntryV1>();
+
+                PerformanceStates20InfoV1.PerformanceState20[] performanceStates = {
+                    new PerformanceStates20InfoV1.PerformanceState20(PerformanceStateId.P0_3DPerformance, clocks, voltages)
+                };
+
+                var overclock = new PerformanceStates20InfoV1(performanceStates, 2, 0);
+                GPUApi.SetPerformanceStates20(_internalGpu.Handle, overclock);
+                AppLogger.Log($"SET GPU CLOCKS: core={core}MHz memory={memory}MHz");
+                return 1;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("SET GPU CLOCKS failed: " + ex.Message);
+                return -1;
+            }
+        }
+
+        public int ResetClocks()
+        {
+            return SetClocks(0, 0);
+        }
+
         public System.Collections.Generic.List<GpuProcessInfo> GetGpuProcesses()
         {
             var list = new System.Collections.Generic.List<GpuProcessInfo>();

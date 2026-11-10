@@ -14,5 +14,9 @@ namespace PreySense.Gpu
         void KillGPUApps();
         int? GetGpuMemoryClock();
         float? GetGpuVoltage();
+        bool IsClockTuningSupported { get; }
+        int SetClocks(int coreMhz, int memoryMhz);
+        bool GetClocks(out int coreMhz, out int memoryMhz, bool forceWake = false);
+        int ResetClocks();
     }
 }
