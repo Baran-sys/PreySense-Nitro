@@ -2,8 +2,9 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:PreySense.Frontend.Controls"
-             x:Name="RootSwitchRow">
-    <Grid HorizontalAlignment="Stretch" Margin="{DynamicResource StandardRowMargin}">
+             x:Name="RootSwitchRow"
+             ToolTipService.ShowOnDisabled="True">
+    <Grid Background="Transparent" HorizontalAlignment="Stretch" Margin="{DynamicResource StandardRowMargin}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />

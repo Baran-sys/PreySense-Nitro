@@ -29,6 +29,12 @@ namespace PreySense.Mode
         {
             lock (CpuLimitGate)
             {
+            if (PreySense.Core.Hardware.CpuVendorHelper.IsAmd)
+            {
+                LastCpuPowerLimitStatus = "AMD Ryzen processor detected: Hardware power limits managed via Windows Boost & Smart Boost.";
+                AppLogger.Log(LastCpuPowerLimitStatus);
+                return true;
+            }
             pl1Watts = Math.Clamp(pl1Watts, 5, PreySense.Core.Driver.CpuPowerLimitConfiguration.MaxPowerLimitWatts);
             pl2Watts = Math.Clamp(pl2Watts, 5, PreySense.Core.Driver.CpuPowerLimitConfiguration.MaxPowerLimitWatts);
             var driverController = PreySense.Core.Hardware.CpuDriverRuntime.PowerLimits;

@@ -58,7 +58,7 @@ namespace PreySense.Core.Configuration
         public bool LightTheme { get; set; } = false;
 
         /// <summary>Whether Acer OEM background services are debloated (stopped and disabled).</summary>
-        public bool AcerServicesDebloated { get; set; } = false;
+        public bool AcerServicesDebloated { get; set; } = true;
 
         /// <summary>Whether hardware tuning controls are enabled.</summary>
         public bool HardwareTuningEnabled { get; set; } = false;
@@ -68,6 +68,18 @@ namespace PreySense.Core.Configuration
 
         /// <summary>Whether liquid glass (DWM acrylic blur) effect is enabled on application windows.</summary>
         public bool GlassEffect { get; set; } = false;
+
+        /// <summary>Whether dynamic CPU thermal throttle prevention (Smart Boost) is enabled.</summary>
+        public bool SmartBoostEnabled { get; set; } = true;
+
+        /// <summary>Whether fan profile edits are synced across all performance modes.</summary>
+        public bool SyncAllFanModes { get; set; } = false;
+
+        /// <summary>Whether tuning edits are synced across all performance modes.</summary>
+        public bool SyncAllTuningModes { get; set; } = false;
+
+        /// <summary>Whether fan control diagnostic CSV logging (fanlog.csv) is enabled.</summary>
+        public bool FanDiagnosticsLogEnabled { get; set; } = false;
     }
 
     public sealed class DisplayConfig
@@ -152,10 +164,15 @@ namespace PreySense.Core.Configuration
         public bool HasFactoryGpuProfiles => HasFactoryDefaults
             && FactoryDefaults.Values.All(p => p.HasGpuLimitValues);
 
-        private static bool HasValidFactoryCpu(ModeTuningConfig profile) =>
-            profile.CpuPl1Watts is >= 5 and <= 300
-            && profile.CpuPl2Watts is >= 5 and <= 300 && profile.CpuPl2Watts >= profile.CpuPl1Watts
-            && profile.TauSeconds is >= 0 and <= 449;
+        private static bool HasValidFactoryCpu(ModeTuningConfig profile)
+        {
+            if (Hardware.CpuVendorHelper.IsAmd)
+                return true;
+
+            return profile.CpuPl1Watts is >= 5 and <= 300
+                && profile.CpuPl2Watts is >= 5 and <= 300 && profile.CpuPl2Watts >= profile.CpuPl1Watts
+                && profile.TauSeconds is >= 0 and <= 449;
+        }
 
         private static bool HasValidFactoryGpuOrNone(ModeTuningConfig profile)
         {
@@ -170,10 +187,18 @@ namespace PreySense.Core.Configuration
         }
 
         [System.Text.Json.Serialization.JsonIgnore]
-        public bool HasFactoryStaticCpuLimits =>
-            FactoryStaticCpuPl1Watts is >= 5 and <= 300
-            && FactoryStaticCpuPl2Watts is >= 5 and <= 300
-            && FactoryStaticCpuPl2Watts >= FactoryStaticCpuPl1Watts;
+        public bool HasFactoryStaticCpuLimits
+        {
+            get
+            {
+                if (Hardware.CpuVendorHelper.IsAmd)
+                    return true;
+
+                return FactoryStaticCpuPl1Watts is >= 5 and <= 300
+                    && FactoryStaticCpuPl2Watts is >= 5 and <= 300
+                    && FactoryStaticCpuPl2Watts >= FactoryStaticCpuPl1Watts;
+            }
+        }
 
         [JsonPropertyOrder(2)]
         public ModeTuningConfig Quiet { get; set; } = new();
@@ -207,13 +232,17 @@ namespace PreySense.Core.Configuration
         [System.Text.Json.Serialization.JsonIgnore]
         public bool HasGpuClockValues => GpuCoreClockOffsetMhz.HasValue && GpuMemoryClockOffsetMhz.HasValue;
 
+        [System.Text.Json.Serialization.JsonIgnore]
+        public bool HasGpuClockLockValues => GpuFrequencyCeilingMhz.HasValue || GpuClockLockWatts.HasValue;
+
         /// <summary>True when at least one apply flag is on and that side has complete values.</summary>
         [System.Text.Json.Serialization.JsonIgnore]
         public bool HasValues =>
-            (ApplyCpuLimits || ApplyGpuLimits || ApplyGpuClockOffsets)
+            (ApplyCpuLimits || ApplyGpuLimits || ApplyGpuClockOffsets || ApplyGpuClockLock)
             && (!ApplyCpuLimits || HasCpuLimitValues)
             && (!ApplyGpuLimits || HasGpuLimitValues)
-            && (!ApplyGpuClockOffsets || HasGpuClockValues);
+            && (!ApplyGpuClockOffsets || HasGpuClockValues)
+            && (!ApplyGpuClockLock || HasGpuClockLockValues);
 
         /// <summary>Windows PERFBOOSTMODE 0–6 from <see cref="CpuBoostMode"/>, or legacy on/off <see cref="CpuBoost"/>.</summary>
         [System.Text.Json.Serialization.JsonIgnore]
@@ -282,10 +311,45 @@ namespace PreySense.Core.Configuration
         /// <summary>Apply GPU clock offsets flag for this profile.</summary>
         [JsonPropertyOrder(13)]
         public bool ApplyGpuClockOffsets { get; set; } = false;
+
+        /// <summary>Target GPU power limit in Watts for frequency ceiling fallback.</summary>
+        [JsonPropertyOrder(14)]
+        public int? GpuClockLockWatts { get; set; }
+
+        /// <summary>GPU core clock frequency ceiling in MHz for systems without ERM4.</summary>
+        [JsonPropertyOrder(15)]
+        public int? GpuFrequencyCeilingMhz { get; set; }
+
+        /// <summary>Apply GPU frequency ceiling / power lock fallback flag.</summary>
+        [JsonPropertyOrder(16)]
+        public bool ApplyGpuClockLock { get; set; } = false;
+
+        /// <summary>Copies all tuning values and apply flags from another profile.</summary>
+        public void CopyFrom(ModeTuningConfig source)
+        {
+            ApplyCpuLimits = source.ApplyCpuLimits;
+            CpuPl1Watts = source.CpuPl1Watts;
+            CpuPl2Watts = source.CpuPl2Watts;
+            TauSeconds = source.TauSeconds;
+            CpuBoostMode = source.CpuBoostMode;
+            CpuBoost = source.CpuBoost;
+            ApplyGpuLimits = source.ApplyGpuLimits;
+            GpuDeltaWatts = source.GpuDeltaWatts;
+            GpuDynamicBoostWatts = source.GpuDynamicBoostWatts;
+            PlatformPowerOffsetWatts = source.PlatformPowerOffsetWatts;
+            GpuWatts = source.GpuWatts;
+            GpuCoreClockOffsetMhz = source.GpuCoreClockOffsetMhz;
+            GpuMemoryClockOffsetMhz = source.GpuMemoryClockOffsetMhz;
+            ApplyGpuClockOffsets = source.ApplyGpuClockOffsets;
+            GpuClockLockWatts = source.GpuClockLockWatts;
+            GpuFrequencyCeilingMhz = source.GpuFrequencyCeilingMhz;
+            ApplyGpuClockLock = source.ApplyGpuClockLock;
+        }
     }
 
     public sealed class FanConfig
     {
+        public FanCalibrationData? Calibration { get; set; }
         public ModeFanCurveConfig Quiet { get; set; } = ModeFanCurveConfig.CreateDefaultQuiet();
         public ModeFanCurveConfig Eco { get; set; } = ModeFanCurveConfig.CreateDefaultEco();
         public ModeFanCurveConfig Balanced { get; set; } = ModeFanCurveConfig.CreateDefaultBalanced();
@@ -351,12 +415,34 @@ namespace PreySense.Core.Configuration
         /// <summary>Fan control mode: 0 = Auto, 1 = Max, 2 = Custom.</summary>
         public int ControlMode { get; set; } = 0;
 
-        /// <summary>Shared delay before accepting a stage change (0-5s).</summary>
+        /// <summary>Shared delay before accepting a fan speed ramp-up (0-10s).</summary>
         public int RampUpSeconds { get; set; } = 2;
+
+        /// <summary>Delay before accepting a fan speed ramp-down (0-10s).</summary>
+        public int RampDownSeconds { get; set; } = 4;
+
+        /// <summary>Temperature hysteresis deadband in Celsius (0-5C).</summary>
+        public int HysteresisCelsius { get; set; } = 2;
+
+        /// <summary>Minimum physical RPM floor before zero-RPM or EC Auto cutoff.</summary>
+        public int MinRpmFloor { get; set; } = 1800;
+
+        /// <summary>Whether to fall back to EC Auto below minimum RPM floor.</summary>
+        public bool UseEcAutoBelowMin { get; set; } = true;
+
+        /// <summary>Whether Performance/Turbo modes may switch to Quiet EC Auto when both CPU and GPU are idle below the minimum RPM floor.</summary>
+        public bool SafeQuietIdleBase { get; set; } = true;
+
+        /// <summary>RPM-native CPU fan curve points.</summary>
+        public List<FanCurvePoint>? Cpu { get; set; }
+
+        /// <summary>RPM-native GPU fan curve points.</summary>
+        public List<FanCurvePoint>? Gpu { get; set; }
 
         private FanStageConfig[]? _stages;
 
-        /// <summary>Reachable stages, including the terminal plateau; unused EC slots are omitted.</summary>
+        /// <summary>Legacy stage table kept for migration and backwards compatibility; omitted when null.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public FanStageConfig[]? Stages
         {
             get => _stages;
@@ -387,7 +473,14 @@ namespace PreySense.Core.Configuration
         {
             ControlMode = (int)profile.ControlMode,
             RampUpSeconds = profile.RampUpSeconds,
-            Stages = profile.Stages.Select(s => new FanStageConfig(s)).ToArray()
+            RampDownSeconds = profile.RampDownSeconds,
+            HysteresisCelsius = profile.HysteresisCelsius,
+            MinRpmFloor = profile.MinRpmFloor,
+            UseEcAutoBelowMin = profile.UseEcAutoBelowMin,
+            SafeQuietIdleBase = profile.SafeQuietIdleBase,
+            Cpu = profile.CpuPoints.Select(p => p.Copy()).ToList(),
+            Gpu = profile.GpuPoints.Select(p => p.Copy()).ToList(),
+            Stages = null
         };
     }
 

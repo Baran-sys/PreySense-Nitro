@@ -189,6 +189,7 @@ namespace PreySense.Frontend.ViewModels
             if (!await ApplyCpuBoostForModeAsync(mode))
                 DiagnosticMessage = "Mode selected, but CPU boost failed.";
             UpdateModeName(mode);
+            await Task.Run(RestoreFanMode);
             NotifyModeSelectionsChanged();
             PersistSessionSettings();
         }
@@ -200,7 +201,10 @@ namespace PreySense.Frontend.ViewModels
 
             byte mode = ProfileManager.SourceProfileMode(ProfileIndexFor(source));
             if (PeekPendingOrActiveMode() == mode)
+            {
+                _ = Task.Run(RestoreFanMode);
                 return;
+            }
 
             CancelPendingModeSwitch();
             _ = ApplyModeSwitchAsync(mode);

@@ -88,6 +88,7 @@ namespace PreySense.Frontend
             }
 
             Services.LocalizationService.Initialize();
+            Services.ThemeManager.LoadAndApply();
             _ = Task.Run(PreySense.Overlay.WinRing0Cleanup.RemoveInstalledDriver);
 
             // Start cross-process show event listener
@@ -142,7 +143,17 @@ namespace PreySense.Frontend
             ((ViewModels.MainViewModel)mainWindow.DataContext).NotifyApplicationReady();
             Services.OverlayBridge.StartIfNeeded();
 
-            // Automatic startup update check disabled per user preference.
+            // Background update check scheduled after startup
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(3000);
+                    await Services.UpdateCheckService.CheckForUpdatesAsync(isManualCheck: false);
+                }
+                catch { }
+            });
+
             Services.MemoryOptimizer.SchedulePostStartupOptimization();
 
             if (startMinimized)
@@ -168,6 +179,8 @@ namespace PreySense.Frontend
                     vm.PersistSessionSettings();
                 Views.ModeToastWindow.Shutdown();
                 PreySense.Gpu.NvidiaGpuControl.Shared.ResetClocks();
+                PreySense.Gpu.NvidiaGpuControl.Shared.ResetGpuClockCeiling();
+                PreySense.Gpu.NvmlHelper.Shutdown();
             }
             catch (Exception ex) { AppLogger.Error($"Application exit cleanup failed: {ex}"); }
             finally

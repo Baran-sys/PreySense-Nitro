@@ -168,7 +168,7 @@ namespace PreySense.Frontend.Views
 			{
 				Margin = new Thickness(0.0, 3.0, 0.0, 3.0)
 			};
-			grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(46) });
+			grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.0, GridUnitType.Star) });
 			grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 			grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 			grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -179,6 +179,7 @@ namespace PreySense.Frontend.Views
 				Text = LocalizationService.Format("Slot #{0}", index + 1),
 				VerticalAlignment = VerticalAlignment.Center,
 				Margin = new Thickness(0.0, 0.0, 8.0, 0.0),
+				MinWidth = 52.0,
 				FontSize = fontSize
 			};
 			ComboBox cpuCombo = new ComboBox
@@ -214,7 +215,8 @@ namespace PreySense.Frontend.Views
 				IsChecked = slot.ShowGraph,
 				VerticalAlignment = VerticalAlignment.Center,
 				HorizontalAlignment = HorizontalAlignment.Right,
-				ClipToBounds = true
+				ClipToBounds = true,
+				ToolTip = LocalizationService.Translate("Toggle mini history graph for this metric slot.")
 			};
             graphSwitch.Checked += (_, _) => SaveGraphVisibility();
             graphSwitch.Unchecked += (_, _) => SaveGraphVisibility();
@@ -237,7 +239,7 @@ namespace PreySense.Frontend.Views
 				FontWeight = FontWeights.Bold,
 				VerticalAlignment = VerticalAlignment.Center,
 				HorizontalAlignment = HorizontalAlignment.Right,
-				ToolTip = "Remove slot"
+				ToolTip = LocalizationService.Translate("Remove slot")
 			};
 			removeButton.Click += (_, _) =>
 			{

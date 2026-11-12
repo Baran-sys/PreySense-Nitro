@@ -10,7 +10,8 @@ public enum TelemetryDemand
     None = 0,
     MainWindow = 1 << 0,
     Overlay = 1 << 1,
-    FanController = 1 << 2
+    FanController = 1 << 2,
+    SmartBoost = 1 << 3
 }
 
 public readonly record struct FrameTelemetry(double? FramesPerSecond, double? FrameTimeMilliseconds, int? ProcessId);
@@ -243,6 +244,8 @@ public static class TelemetryCoordinator
                 if (demand.HasFlag(TelemetryDemand.MainWindow)) metrics |= MainWindowMetrics;
                 if (demand.HasFlag(TelemetryDemand.Overlay)) metrics |= _overlayMetrics;
                 if (demand.HasFlag(TelemetryDemand.FanController))
+                    metrics |= TelemetryMetrics.Temperatures | TelemetryMetrics.CpuFanRpm | TelemetryMetrics.GpuFanRpm;
+                if (demand.HasFlag(TelemetryDemand.SmartBoost))
                     metrics |= TelemetryMetrics.Temperatures;
                 return metrics;
             }
@@ -515,8 +518,13 @@ public static class TelemetryCoordinator
                             if (_currentSnapshot.IsValid)
                             {
                                 long now = _customTimestampProvider != null ? _customTimestampProvider() : Stopwatch.GetTimestamp();
-                                snapshot = _currentSnapshot.ExpireFullTelemetryIfStale(now, StaleSnapshotSeconds, _customTimestampProvider)
+                                var updated = _currentSnapshot.ExpireFullTelemetryIfStale(now, StaleSnapshotSeconds, _customTimestampProvider)
                                     .WithFanTemperatures(snapshot.CpuTemp, snapshot.GpuTemp, snapshot.EffectiveThermalTicks);
+                                if ((metrics & TelemetryMetrics.CpuFanRpm) != 0)
+                                    updated = updated with { CpuRpm = snapshot.CpuRpm };
+                                if ((metrics & TelemetryMetrics.GpuFanRpm) != 0)
+                                    updated = updated with { GpuRpm = snapshot.GpuRpm };
+                                snapshot = updated;
                             }
                         }
                     }

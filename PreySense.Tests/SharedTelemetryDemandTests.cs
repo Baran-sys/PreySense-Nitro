@@ -55,7 +55,7 @@ public class SharedTelemetryDemandTests
             TelemetryCoordinator.Poll();
             Assert.AreEqual(3, sources.CpuTemperatures);
             Assert.AreEqual(3, sources.GpuTemperatures);
-            Assert.AreEqual(2, sources.Fans, "Custom fan control requests temperatures, not RPM.");
+            Assert.AreEqual(3, sources.Fans, "Closed-loop fan control requests temperatures and tach RPMs.");
             Assert.AreEqual(2, frames, "A hidden/unselected FPS consumer requests no frame read.");
             TelemetryCoordinator.SetDemand(TelemetryDemand.FanController, false);
             ticks += Stopwatch.Frequency;

@@ -36,14 +36,75 @@ namespace PreySense.Core.Services
 
         public bool SetPowerMode(byte mode)
         {
+            QuietIdleBaseActive = false;
             _powerMode = mode;
             PowerModeChanged?.Invoke(this, mode);
             return true;
         }
 
-        public bool SetFanMode(byte cpuMode, byte gpuMode) => true;
+        public bool QuietIdleBaseActive { get; private set; }
+        public byte LastQuietIdleUserMode { get; private set; }
+        public byte LastQuietBaseMode { get; private set; } = 0x01;
+        public int QuietIdleBaseCallCount { get; private set; }
 
-        public bool SetFanSpeeds(byte cpuPercentage, byte gpuPercentage) => true;
+        public bool SetQuietIdleBase(bool enable, byte userPowerMode, byte quietBaseMode = 0x01)
+        {
+            QuietIdleBaseCallCount++;
+            LastQuietIdleUserMode = userPowerMode;
+            LastQuietBaseMode = quietBaseMode;
+            if (enable)
+            {
+                if (quietBaseMode is not (0x00 or 0x01 or 0x06))
+                    return false;
+                if (userPowerMode == quietBaseMode || (userPowerMode is 0x00 or 0x06 && quietBaseMode != 0x06))
+                    return false;
+                QuietIdleBaseActive = true;
+                return true;
+            }
+
+            QuietIdleBaseActive = false;
+            return true;
+        }
+
+        public bool SetFanMode(byte cpuMode, byte gpuMode)
+        {
+            ManualZeroFansActive = false;
+            return true;
+        }
+
+        public bool SetFanSpeeds(byte cpuPercentage, byte gpuPercentage)
+        {
+            ManualZeroFansActive = false;
+            return true;
+        }
+
+        public int SetManualZeroFansCallCount { get; private set; }
+        public bool ManualZeroFansActive { get; private set; }
+        public bool TrySetManualZeroFansResult { get; set; } = true;
+
+        public bool TrySetManualZeroFans()
+        {
+            SetManualZeroFansCallCount++;
+            if (!TrySetManualZeroFansResult)
+                return false;
+            ManualZeroFansActive = true;
+            return true;
+        }
+
+        public Func<(int CpuRpm, int GpuRpm)>? ExactFanRpmProvider { get; set; }
+
+        public bool TryReadExactFanRpms(out int cpuRpm, out int gpuRpm)
+        {
+            if (ExactFanRpmProvider != null)
+            {
+                (cpuRpm, gpuRpm) = ExactFanRpmProvider();
+                return cpuRpm >= 0 || gpuRpm >= 0;
+            }
+
+            cpuRpm = 2400;
+            gpuRpm = 2100;
+            return true;
+        }
 
         public int GetBatteryChargeLimit() => _batteryLimit;
 

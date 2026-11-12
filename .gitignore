@@ -36,3 +36,5 @@ tools/rw/
 .cursor/
 CURSOR.md
 test_tools/captures/
+*.zip
+baslat_yeni_surum.bat

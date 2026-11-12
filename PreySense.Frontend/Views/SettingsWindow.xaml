@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:controls="clr-namespace:PreySense.Frontend.Controls"
+        xmlns:services="clr-namespace:PreySense.Frontend.Services"
         mc:Ignorable="d"
         Title="PreySense • Settings"
         Width="445"
@@ -32,16 +33,19 @@
                         <StackPanel>
                             <!-- Run on Startup Toggle -->
                             <controls:SettingSwitchRow Title="Run on Startup"
+                                                      ToolTip="Start PreySense automatically in the system tray when you sign in to Windows."
                                                       IsEnabled="{Binding CanChangeRunOnStartup}"
                                                       IsChecked="{Binding IsRunOnStartupEnabled, Mode=TwoWay}" 
                                                       Command="{Binding ToggleRunOnStartupCommand}"/>
 
                             <!-- Disable Tray Icon Toggle -->
                             <controls:SettingSwitchRow Title="Disable Tray Icon"
+                                                      ToolTip="Hide the PreySense icon from the Windows notification area."
                                                       IsChecked="{Binding IsTrayIconDisabled, Mode=TwoWay}"/>
 
                             <controls:SettingDropdownRow x:Name="LanguageSelector"
                                                          Title="Language"
+                                                         ToolTip="Select the display language used across all PreySense windows."
                                                          DropdownWidth="220"
                                                          SelectionChanged="LanguageSelector_SelectionChanged">
                                 <ComboBoxItem Content="English" Tag="en-US"/>
@@ -49,18 +53,26 @@
                                 <ComboBoxItem Content="Hindi" Tag="hi-IN"/>
                                 <ComboBoxItem Content="Spanish" Tag="es-ES"/>
                                 <ComboBoxItem Content="French" Tag="fr-FR"/>
+                                <ComboBoxItem Content="Turkish" Tag="tr-TR"/>
                             </controls:SettingDropdownRow>
 
                             <controls:SettingSwitchRow Title="Theme"
+                                                      ToolTip="Switch between Dark and Light window themes."
                                                       IsChecked="{Binding IsLightTheme, Mode=TwoWay}"
                                                       OnText="Light"
                                                       OffText="Dark"
                                                       SwitchWidth="92"/>
 
                             <controls:SettingSwitchRow Title="Liquid Glass Effect"
+                                                      ToolTip="Enable Windows Acrylic translucent blur backdrop across PreySense windows."
                                                       IsChecked="{Binding IsGlassEffectEnabled, Mode=TwoWay}"/>
 
+                            <controls:SettingSwitchRow Title="Fan Diagnostic Log"
+                                                      ToolTip="Record detailed fan RPM, duty cycle, and temperature samples to fanlog.csv for troubleshooting."
+                                                      IsChecked="{Binding IsFanDiagnosticsLogEnabled, Mode=TwoWay}"/>
+
                             <controls:SettingSwitchRow Title="Acer Services"
+                                                      ToolTip="Enable or stop/disable background Acer OEM services to save memory and avoid EC conflicts."
                                                       IsChecked="{Binding IsAcerServicesEnabled, Mode=OneWay}"
                                                       Command="{Binding ToggleAcerServicesDebloaterCommand}"
                                                       OnText="Enabled"
@@ -68,12 +80,14 @@
                                                       SwitchWidth="120"/>
 
                             <controls:SettingSwitchRow Title="Battery Limit"
+                                                      ToolTip="Cap battery charging at 80% to extend long-term battery lifespan."
                                                       IsChecked="{Binding IsBatteryLimitEnabled, Mode=OneWay}"
                                                       OnText="80%"
                                                       OffText="100%"
                                                       SwitchWidth="92"
                                                       Command="{Binding ToggleBatteryLimitCommand}"/>
                             <controls:SettingSliderRow x:Name="UsbChargingSlider" Title="USB Power-Off Charging"
+                                                       ToolTip="Allow supported USB ports to charge devices while the laptop is off until battery reaches the chosen cutoff."
                                                        Minimum="0" Maximum="30" SmallChange="10" LargeChange="10"
                                                        TickFrequency="10" IsSnapToTickEnabled="True"
                                                        Value="{Binding UsbChargingCutoffPercent, Mode=OneWay}"
@@ -106,17 +120,82 @@
                                 <TextBlock Text="Power Profiles" Style="{StaticResource OriginalSectionTitleStyle}"/>
                             </Grid>
                             <controls:SettingDropdownRow Title="On Battery"
+                                                         ToolTip="Performance mode automatically applied when unplugged and running on battery."
                                                          ItemsSource="{Binding SourceProfileNames}"
                                                          SelectedIndex="{Binding BatteryPowerModeIndex, Mode=TwoWay}"
                                                          DropdownWidth="160"/>
 
                             <controls:SettingSwitchRow Title="Energy Saver on Battery"
+                                                      ToolTip="Automatically enable Windows Energy Saver whenever the charger is disconnected."
                                                       IsChecked="{Binding IsBatteryEnergySaverEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
                             <controls:SettingDropdownRow Title="On AC"
+                                                         ToolTip="Performance mode automatically applied when the AC adapter is connected."
                                                          ItemsSource="{Binding SourceProfileNames}"
                                                          SelectedIndex="{Binding AcPowerModeIndex, Mode=TwoWay}"
                                                          DropdownWidth="160"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Separator Margin="0,4,0,12"/>
+
+                    <Border Style="{StaticResource OriginalSectionPanelStyle}" CornerRadius="4" Margin="{StaticResource StandardSectionMargin}">
+                        <StackPanel>
+                            <Grid Style="{StaticResource OriginalSectionTitlePanelStyle}">
+                                <TextBlock Text="Configuration Backup" Style="{StaticResource OriginalSectionTitleStyle}"/>
+                            </Grid>
+                            <Grid Margin="12,8,12,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Content="Import Settings"
+                                        ToolTip="Load saved power, fan curve, and tuning profiles from a JSON backup file."
+                                        Command="{Binding ImportSettingsCommand}"
+                                        Style="{StaticResource WindowFooterButtonStyle}"
+                                        Height="32"/>
+                                <Button Grid.Column="2" Content="Export Settings"
+                                        ToolTip="Save your current configuration, fan curves, and tuning profiles to a JSON file."
+                                        Command="{Binding ExportSettingsCommand}"
+                                        Style="{StaticResource WindowFooterButtonStyle}"
+                                        Height="32"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Separator Margin="0,4,0,12"/>
+
+                    <!-- Section: About & System Information -->
+                    <Border Style="{StaticResource OriginalSectionPanelStyle}" CornerRadius="4" Margin="{StaticResource StandardSectionMargin}">
+                        <StackPanel Margin="12,10,12,12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="PreySense" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <Border Background="{DynamicResource AccentBrush}" CornerRadius="3" Margin="8,0,0,0" Padding="5,1,5,1" VerticalAlignment="Center">
+                                        <TextBlock Text="{x:Static services:UpdateCheckService.DisplayVersion}" FontSize="11" FontWeight="Bold" Foreground="White"/>
+                                    </Border>
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="Check for Updates"
+                                        ToolTip="Check GitHub releases for a newer version of PreySense."
+                                        Command="{Binding CheckForUpdatesCommand}"
+                                        Style="{StaticResource WindowFooterButtonStyle}"
+                                        Height="26" Padding="12,0"/>
+                            </Grid>
+                            <TextBlock Text="PreySense — Advanced Acer Predator &amp; Nitro Control Suite for modern Intel Core and AMD Ryzen architectures."
+                                       TextWrapping="Wrap" Margin="0,6,0,8" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <Grid Margin="0,2,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="PreySense Credits: Acer Community, WMI reverse-engineering contributors" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="PreySense .NET 10 • x64" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
+                            </Grid>
                         </StackPanel>
                     </Border>
                     

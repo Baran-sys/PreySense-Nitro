@@ -7,39 +7,82 @@
         ResizeMode="NoResize" ShowInTaskbar="False"
         Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="{DynamicResource AppFontFamily}">
     <Border Style="{DynamicResource AppWindowShellStyle}">
-        <StackPanel>
-            <controls:WindowTitleBar Title="Fans"/>
-            <StackPanel Margin="{StaticResource WindowContentMargin}">
-                <controls:SettingDropdownRow x:Name="ProfileRow" Title="Profile Mode"
-                    ItemsSource="{Binding FanCurveModeNames}" DropdownWidth="140" Margin="0,0,0,8"/>
-                <UniformGrid Columns="3" Margin="{StaticResource StandardSectionMargin}">
-                    <RadioButton x:Name="AutoOption" Content="Auto" GroupName="FanControl" Style="{StaticResource SegmentedTabRadioStyle}" Checked="FanMode_Changed"/>
-                    <RadioButton x:Name="MaxOption" Content="Max" GroupName="FanControl" Style="{StaticResource SegmentedTabRadioStyle}" Checked="FanMode_Changed"/>
-                    <RadioButton x:Name="CustomOption" Content="Custom" GroupName="FanControl" Style="{StaticResource SegmentedTabRadioStyle}" Checked="FanMode_Changed"/>
-                </UniformGrid>
-                <controls:LabeledTabSwitcher x:Name="FanTabs" Margin="{StaticResource StandardSectionMargin}"
-                    LeftText="CPU Fan" RightText="GPU Fan"
-                    LeftIcon="pack://application:,,,/PreySense;component/Resources/icons8-processor-32.png"
-                    RightIcon="pack://application:,,,/PreySense;component/Resources/icons8-video-card-32.png"
-                    SelectionChanged="FanTab_Changed"/>
-                <StackPanel x:Name="CurveEditor">
-                    <controls:SettingSliderRow x:Name="DelayRow" Title="Fan Control Delay"
-                        Minimum="0" Maximum="5" SmallChange="1" LargeChange="1" TickFrequency="1"
-                        IsSnapToTickEnabled="True" Value="0" ValueText="0 s"
-                        ValueChanged="DelayRow_ValueChanged" Margin="0,0,0,6"/>
-                    <Border BorderBrush="{DynamicResource BorderSecondBrush}" BorderThickness="1" CornerRadius="4" Padding="4">
-                        <controls:WpfFanCurveControl x:Name="Curve" Height="215"/>
-                    </Border>
-                    <controls:SettingValueRow x:Name="RowTemp" Title="Temp" Minimum="40" Maximum="100" Unit="&#xB0;C" ValueCommitted="StageField_Committed" Margin="0,5,0,0"/>
-                    <controls:SettingValueRow x:Name="RowDuty" Title="Duty" Minimum="0" Maximum="100" Unit="%" ValueCommitted="StageField_Committed"/>
-                    <controls:SettingValueRow x:Name="RowRpm" Title="RPM" Minimum="0" Maximum="6400" Unit="RPM" ValueCommitted="StageField_Committed"/>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <controls:WindowTitleBar Grid.Row="0" Title="Fans"/>
+            <ScrollViewer x:Name="ContentScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="{StaticResource WindowContentMargin}">
+                    <controls:SettingDropdownRow x:Name="ProfileRow" Title="Profile Mode"
+                        ToolTip="Choose which performance mode's fan curve and behavior you are editing."
+                        ItemsSource="{Binding FanCurveModeNames}" DropdownWidth="140" Margin="0,0,0,4"/>
+                    <controls:SettingSwitchRow x:Name="SyncAllModesRow" Title="Sync All Modes" Margin="0,0,0,4"
+                        ToolTip="Copy the active fan curve and timing settings to all performance modes when saving."/>
+                    <controls:SettingActionRow x:Name="CalibrationRow" Title="Fan Calibration"
+                        ToolTip="Measure your laptop's real fan RPM-to-duty response and quiet idle floor so custom curves hit accurate RPM targets."
+                        ActionText="Calibrate Fans" Click="CalibrateFans_Click" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="CalibrationStatusText" Text="Not calibrated - click Calibrate Fans"
+                        TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                    <UniformGrid Columns="3" Margin="{StaticResource StandardSectionMargin}">
+                        <RadioButton x:Name="AutoOption" Content="Auto" GroupName="FanControl" Style="{StaticResource SegmentedTabRadioStyle}" Checked="FanMode_Changed"
+                                     ToolTip="Let the laptop Embedded Controller manage fan speeds automatically."/>
+                        <RadioButton x:Name="MaxOption" Content="Max" GroupName="FanControl" Style="{StaticResource SegmentedTabRadioStyle}" Checked="FanMode_Changed"
+                                     ToolTip="Run CPU and GPU fans at full speed for maximum cooling."/>
+                        <RadioButton x:Name="CustomOption" Content="Custom" GroupName="FanControl" Style="{StaticResource SegmentedTabRadioStyle}" Checked="FanMode_Changed"
+                                     ToolTip="Follow your custom temperature-to-RPM fan curve using closed-loop speed control."/>
+                    </UniformGrid>
+                    <controls:LabeledTabSwitcher x:Name="FanTabs" Margin="{StaticResource StandardSectionMargin}"
+                        LeftText="CPU Fan" RightText="GPU Fan"
+                        LeftIcon="pack://application:,,,/PreySense;component/Resources/icons8-processor-32.png"
+                        RightIcon="pack://application:,,,/PreySense;component/Resources/icons8-video-card-32.png"
+                        SelectionChanged="FanTab_Changed"/>
+                    <StackPanel x:Name="CurveEditor">
+                        <controls:SettingSliderRow x:Name="RampUpRow" Title="Ramp Up"
+                            ToolTip="Time window to smoothly accelerate fans when temperature rises, preventing sudden fan spikes."
+                            Minimum="0" Maximum="10" SmallChange="1" LargeChange="1" TickFrequency="1"
+                            IsSnapToTickEnabled="True" Value="2" ValueText="2 s"
+                            ValueChanged="CurveSlider_ValueChanged" Margin="0,0,0,2"/>
+                        <controls:SettingSliderRow x:Name="RampDownRow" Title="Ramp Down"
+                            ToolTip="Time window to gradually slow fans down as temperatures cool, avoiding abrupt noise drops."
+                            Minimum="0" Maximum="10" SmallChange="1" LargeChange="1" TickFrequency="1"
+                            IsSnapToTickEnabled="True" Value="4" ValueText="4 s"
+                            ValueChanged="CurveSlider_ValueChanged" Margin="0,0,0,2"/>
+                        <controls:SettingSliderRow x:Name="HysteresisRow" Title="Hysteresis"
+                            ToolTip="Temperature buffer (°C) that must drop before lowering fan speed, stopping rapid revving at threshold boundaries."
+                            Minimum="0" Maximum="5" SmallChange="1" LargeChange="1" TickFrequency="1"
+                            IsSnapToTickEnabled="True" Value="2" ValueText="2 °C"
+                            ValueChanged="CurveSlider_ValueChanged" Margin="0,0,0,2"/>
+                        <controls:SettingValueRow x:Name="MinRpmFloorRow" Title="Min RPM Floor"
+                            ToolTip="Lowest nonzero fan speed allowed when active cooling starts above your idle threshold."
+                            Minimum="1800" Maximum="3000" Unit="RPM" Value="1800"
+                            ValueCommitted="MinRpmFloor_Committed" Margin="0,0,0,2"/>
+                        <controls:SettingSwitchRow x:Name="UseEcAutoBelowMinRow" Title="0 RPM = EC Auto (Silent Idle)"
+                            ToolTip="When curve target is 0 RPM (cool/idle), hand control to silent EC Auto instead of forcing manual stall kicks."
+                            IsChecked="True" Margin="0,0,0,2"/>
+                        <controls:SettingSwitchRow x:Name="SafeQuietIdleBaseRow" Title="Quiet EC Base on Idle (&lt; Min)"
+                            ToolTip="Use the steady Balanced EC base rather than Quiet EC mode during silent idle to avoid 20-second fan pulsing on Nitro/Predator."
+                            IsChecked="True" Margin="0,0,0,6"/>
+                        <Border BorderBrush="{DynamicResource BorderSecondBrush}" BorderThickness="1" CornerRadius="4" Padding="4"
+                                ToolTip="Drag curve points to adjust temperature and RPM; double-click to add a point, right-click to remove.">
+                            <controls:WpfFanCurveControl x:Name="Curve" Height="215"/>
+                        </Border>
+                        <controls:SettingValueRow x:Name="RowTemp" Title="Temp" Minimum="30" Maximum="100" Unit="&#xB0;C" ValueCommitted="StageField_Committed" Margin="0,5,0,0"
+                            ToolTip="Temperature trigger point (°C) for the selected curve node."/>
+                        <controls:SettingValueRow x:Name="RowRpm" Title="RPM" Minimum="0" Maximum="6400" Unit="RPM" ValueCommitted="StageField_Committed"
+                            ToolTip="Target fan speed (RPM) for the selected curve node (0 = silent idle)."/>
+                        <controls:SettingValueRow x:Name="RowDuty" Title="Duty" Minimum="0" Maximum="100" Unit="%" IsValueEnabled="False"
+                            ToolTip="Estimated EC duty percentage mapped from your fan calibration."/>
+                    </StackPanel>
                 </StackPanel>
-            </StackPanel>
-            <UniformGrid x:Name="FooterPanel" Columns="3" Style="{StaticResource WindowFooterPanelStyle}">
+            </ScrollViewer>
+            <UniformGrid x:Name="FooterPanel" Grid.Row="2" Columns="3" Style="{StaticResource WindowFooterPanelStyle}">
                 <Button Content="Reset" Click="Reset_Click" Style="{StaticResource WindowFooterButtonStyle}"/>
                 <Button Content="Apply" Click="Apply_Click" Style="{StaticResource WindowFooterButtonStyle}"/>
                 <Button Content="Save" Click="Save_Click" Style="{StaticResource WindowFooterButtonStyle}"/>
             </UniformGrid>
-        </StackPanel>
+        </Grid>
     </Border>
 </Window>

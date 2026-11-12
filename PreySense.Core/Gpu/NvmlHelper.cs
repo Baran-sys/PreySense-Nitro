@@ -18,6 +18,8 @@ namespace PreySense.Gpu
         [DllImport(NvmlDll)] static extern int nvmlDeviceGetTemperature(IntPtr device, int sensorType, out uint tempC);
         [DllImport(NvmlDll)] static extern int nvmlDeviceGetCurrentClocksThrottleReasons(IntPtr device, out ulong clocksThrottleReasons);
         [DllImport(NvmlDll)] static extern int nvmlDeviceGetEnforcedPowerLimit(IntPtr device, out uint limitMilliWatts);
+        [DllImport(NvmlDll)] static extern int nvmlDeviceSetGpuLockedClocks(IntPtr device, uint minGpuClockMHz, uint maxGpuClockMHz);
+        [DllImport(NvmlDll)] static extern int nvmlDeviceResetGpuLockedClocks(IntPtr device);
         [DllImport(NvmlDll)] static extern int nvmlDeviceGetFieldValues(IntPtr device, int valuesCount, [In, Out] nvmlFieldValue_t[] values);
 
         [StructLayout(LayoutKind.Sequential)]
@@ -201,6 +203,48 @@ namespace PreySense.Gpu
                     return (int)clockMHz;
                 }
                 catch { return null; }
+            }
+        }
+
+        public static bool SetGpuLockedClocks(uint minClockMhz, uint maxClockMhz, uint gpuIndex = 0)
+        {
+            lock (_lock)
+            {
+                Init();
+                if (!_init) return false;
+                try
+                {
+                    if (nvmlDeviceGetHandleByIndex_v2(gpuIndex, out IntPtr device) != NVML_SUCCESS) return false;
+                    int rc = nvmlDeviceSetGpuLockedClocks(device, minClockMhz, maxClockMhz);
+                    AppLogger.Log($"NVML SetGpuLockedClocks ({minClockMhz}-{maxClockMhz} MHz): {rc}");
+                    return rc == NVML_SUCCESS;
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Log($"NVML SetGpuLockedClocks exception: {ex.Message}");
+                    return false;
+                }
+            }
+        }
+
+        public static bool ResetGpuLockedClocks(uint gpuIndex = 0)
+        {
+            lock (_lock)
+            {
+                Init();
+                if (!_init) return false;
+                try
+                {
+                    if (nvmlDeviceGetHandleByIndex_v2(gpuIndex, out IntPtr device) != NVML_SUCCESS) return false;
+                    int rc = nvmlDeviceResetGpuLockedClocks(device);
+                    AppLogger.Log($"NVML ResetGpuLockedClocks: {rc}");
+                    return rc == NVML_SUCCESS;
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Log($"NVML ResetGpuLockedClocks exception: {ex.Message}");
+                    return false;
+                }
             }
         }
 

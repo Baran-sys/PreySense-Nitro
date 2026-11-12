@@ -496,6 +496,18 @@ namespace PreySense.Gpu
             return SetClocks(0, 0);
         }
 
+        public bool SetGpuClockCeiling(int maxClockMhz)
+        {
+            if (!IsValid) return false;
+            return NvmlHelper.SetGpuLockedClocks(0, (uint)maxClockMhz);
+        }
+
+        public bool ResetGpuClockCeiling()
+        {
+            if (!IsValid) return false;
+            return NvmlHelper.ResetGpuLockedClocks();
+        }
+
         public System.Collections.Generic.List<GpuProcessInfo> GetGpuProcesses()
         {
             var list = new System.Collections.Generic.List<GpuProcessInfo>();

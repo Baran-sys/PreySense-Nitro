@@ -73,6 +73,28 @@ namespace PreySense.Helpers
         private static extern bool ReadDeviceProperty(IntPtr deviceInfoSet, ref SP_DEVINFO_DATA deviceInfoData,
             int property, out int dataType, byte[] buffer, int bufferSize, out int requiredSize);
 
+        [DllImport("cfgmgr32.dll", EntryPoint = "CM_Locate_DevNodeW", SetLastError = true)]
+        private static extern int CM_Locate_DevNodeW(out int pdnDevInst, string? pDeviceID, int ulFlags);
+
+        [DllImport("cfgmgr32.dll", EntryPoint = "CM_Reenumerate_DevNode", SetLastError = true)]
+        private static extern int CM_Reenumerate_DevNode(int dnDevInst, int ulFlags);
+
+        public static void TriggerPnpReenumeration()
+        {
+            try
+            {
+                if (CM_Locate_DevNodeW(out int devInst, null, 0) == 0)
+                {
+                    CM_Reenumerate_DevNode(devInst, 0);
+                    AppLogger.Log("PnP hardware tree re-enumeration triggered.");
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Log($"TriggerPnpReenumeration exception: {ex.Message}");
+            }
+        }
+
         /// <summary>Reads Windows-maintained CM_POWER_DATA; does not query the GPU driver.</summary>
         public static int? GetDisplayDevicePowerState(string hardwareIdSubstring)
         {
@@ -140,8 +162,27 @@ namespace PreySense.Helpers
         /// </summary>
         public static bool SetDeviceState(string hardwareIdSubstring, bool enable)
         {
+            bool success = TrySetDeviceStateInternal(hardwareIdSubstring, enable, DIGCF_PRESENT);
+            if (!success && enable)
+            {
+                // If device was disabled across system reboot, query without DIGCF_PRESENT
+                success = TrySetDeviceStateInternal(hardwareIdSubstring, enable, 0);
+            }
+            if (success)
+            {
+                if (enable)
+                {
+                    TriggerPnpReenumeration();
+                }
+                InvalidateDisplayDevicePowerStateCache();
+            }
+            return success;
+        }
+
+        private static bool TrySetDeviceStateInternal(string hardwareIdSubstring, bool enable, uint flags)
+        {
             Guid displayGuid = DisplayClassGuid;
-            IntPtr devInfoSet = SetupDiGetClassDevs(ref displayGuid, null, IntPtr.Zero, DIGCF_PRESENT);
+            IntPtr devInfoSet = SetupDiGetClassDevs(ref displayGuid, null, IntPtr.Zero, flags);
             if (devInfoSet == IntPtr.Zero || devInfoSet.ToInt64() == -1)
                 return false;
 
@@ -191,8 +232,6 @@ namespace PreySense.Helpers
             {
                 SetupDiDestroyDeviceInfoList(devInfoSet);
             }
-            if (success)
-                InvalidateDisplayDevicePowerStateCache();
             return success;
         }
 

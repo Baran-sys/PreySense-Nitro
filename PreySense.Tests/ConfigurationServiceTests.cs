@@ -71,6 +71,13 @@ namespace PreySense.Tests
         }
 
         [TestMethod]
+        public void GeneralConfig_AcerServicesDebloated_DefaultsToTrue()
+        {
+            var config = new PreySenseConfig();
+            Assert.IsTrue(config.General.AcerServicesDebloated, "Acer OEM services must be configured to be debloated by default.");
+        }
+
+        [TestMethod]
         public void Save_AtomicallyPersistsJson_AndRoundTripsCleanly()
         {
             var service = new ConfigurationService(_testConfigPath);
@@ -302,6 +309,62 @@ namespace PreySense.Tests
             Assert.AreEqual("fr-FR", external.Reload().General.Language);
             service.Save(service.GetCurrent());
             Assert.AreEqual("en-US", service.Reload().General.Language);
+        }
+
+        [TestMethod]
+        public void ExportToFile_And_ImportFromFile_RoundTripsConfigurationCleanly()
+        {
+            var service = new ConfigurationService(_testConfigPath);
+            service.Update(cfg =>
+            {
+                cfg.General.Language = "de-DE";
+                cfg.Tuning.Balanced.CpuPl1Watts = 72;
+                cfg.Tuning.Balanced.CpuPl2Watts = 95;
+            });
+
+            string exportPath = Path.Combine(Path.GetDirectoryName(_testConfigPath)!, "export_test.json");
+            try
+            {
+                service.ExportToFile(exportPath);
+                Assert.IsTrue(File.Exists(exportPath), "Exported file must exist.");
+
+                string json = File.ReadAllText(exportPath);
+                Assert.Contains("\"Language\": \"de-DE\"", json);
+                Assert.Contains("\"CpuPl1Watts\": 72", json);
+
+                // Modify current
+                service.Update(cfg => cfg.General.Language = "es-ES");
+                Assert.AreEqual("es-ES", service.GetCurrent().General.Language);
+
+                // Import back from exportPath
+                var imported = service.ImportFromFile(exportPath);
+                Assert.AreEqual("de-DE", imported.General.Language);
+                Assert.AreEqual(72, imported.Tuning.Balanced.CpuPl1Watts);
+                Assert.AreEqual(95, imported.Tuning.Balanced.CpuPl2Watts);
+                Assert.AreEqual("de-DE", service.GetCurrent().General.Language);
+            }
+            finally
+            {
+                if (File.Exists(exportPath)) File.Delete(exportPath);
+            }
+        }
+
+        [TestMethod]
+        public void ImportFromFile_RejectsInvalidJsonOrMissingFile()
+        {
+            var service = new ConfigurationService(_testConfigPath);
+            Assert.Throws<FileNotFoundException>(() => service.ImportFromFile("non_existent_file_12345.json"));
+
+            string malformedPath = Path.Combine(Path.GetDirectoryName(_testConfigPath)!, "malformed.json");
+            try
+            {
+                File.WriteAllText(malformedPath, "{ this is not valid json }");
+                Assert.Throws<InvalidOperationException>(() => service.ImportFromFile(malformedPath));
+            }
+            finally
+            {
+                if (File.Exists(malformedPath)) File.Delete(malformedPath);
+            }
         }
     }
 }

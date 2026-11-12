@@ -68,7 +68,9 @@ public class MainWindowTelemetryTests
             vm.SetMainWindowTelemetryVisible(true);
             Assert.AreEqual(TelemetryCoordinator.MainWindowMetrics | TelemetryMetrics.CpuPower, TelemetryCoordinator.RequestedMetrics);
             vm.SetMainWindowTelemetryVisible(false);
-            Assert.AreEqual(TelemetryMetrics.CpuPower | TelemetryMetrics.Temperatures, TelemetryCoordinator.RequestedMetrics);
+            Assert.AreEqual(
+                TelemetryMetrics.CpuPower | TelemetryMetrics.Temperatures | TelemetryMetrics.CpuFanRpm | TelemetryMetrics.GpuFanRpm,
+                TelemetryCoordinator.RequestedMetrics);
         }
         finally { vm.SetMainWindowTelemetryVisible(false); TelemetryCoordinator.Reset(); }
     }

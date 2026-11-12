@@ -179,6 +179,39 @@
     <Setter Property="Padding" Value="10,0" />
   </Style>
 
+  <Style TargetType="{x:Type ToolTip}">
+    <Setter Property="Background" Value="{DynamicResource PopupSurfaceBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderMainBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeControl}" />
+    <Setter Property="Padding" Value="10,7" />
+    <Setter Property="MaxWidth" Value="290" />
+    <Setter Property="HasDropShadow" Value="True" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type ToolTip}">
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="6"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}">
+              <ContentPresenter.Resources>
+                <Style TargetType="{x:Type TextBlock}">
+                  <Setter Property="TextWrapping" Value="Wrap" />
+                  <Setter Property="LineHeight" Value="15" />
+                </Style>
+              </ContentPresenter.Resources>
+            </ContentPresenter>
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- Minimal application scrollbar: a single narrow track and thumb, without Windows arrow buttons. -->
   <Style TargetType="{x:Type ScrollBar}">
     <Setter Property="Width" Value="5" />
@@ -632,7 +665,7 @@
     </Setter>
   </Style>
   <Style x:Key="{x:Type ComboBoxItem}" TargetType="{x:Type ComboBoxItem}">
-    <Setter Property="Background" Value="{DynamicResource WindowBgBrush}" />
+    <Setter Property="Background" Value="{DynamicResource PopupSurfaceBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
     <Setter Property="FontSize" Value="{StaticResource FontSizeControl}" />
@@ -688,7 +721,7 @@
         <ControlTemplate TargetType="{x:Type ComboBox}">
           <Grid Name="MainGrid" SnapsToDevicePixels="true">
             <Popup Name="PART_Popup" AllowsTransparency="True" Placement="Bottom" PlacementTarget="{Binding ElementName=MainGrid}" PopupAnimation="None" IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}">
-              <Border Name="DropDownBorder" BorderThickness="1" CornerRadius="4" Background="{DynamicResource WindowBgBrush}" BorderBrush="{DynamicResource BorderMainBrush}" Width="{Binding ActualWidth, ElementName=MainGrid}" MaxWidth="{Binding ActualWidth, ElementName=MainGrid}" SnapsToDevicePixels="True">
+              <Border Name="DropDownBorder" BorderThickness="1" CornerRadius="4" Background="{DynamicResource PopupSurfaceBrush}" BorderBrush="{DynamicResource BorderMainBrush}" Width="{Binding ActualWidth, ElementName=MainGrid}" MaxWidth="{Binding ActualWidth, ElementName=MainGrid}" SnapsToDevicePixels="True">
                 <Border.RenderTransform>
                   <TranslateTransform x:Name="DropDownShift" Y="0"/>
                 </Border.RenderTransform>

@@ -34,11 +34,26 @@ namespace PreySense.Core.Configuration
 
         public ConfigurationService(string? customPath = null)
         {
-            _configFilePath = !string.IsNullOrWhiteSpace(customPath)
-                ? customPath
-                : Path.Combine(Directory.GetCurrentDirectory(), ConfigFileName);
-
+            _configFilePath = ResolveConfigPath(customPath);
             _currentConfig = LoadOrInitialize();
+        }
+
+        private static string ResolveConfigPath(string? customPath)
+        {
+            if (!string.IsNullOrWhiteSpace(customPath)) return customPath;
+
+            string baseDirConfig = Path.Combine(AppContext.BaseDirectory, ConfigFileName);
+            if (File.Exists(baseDirConfig)) return baseDirConfig;
+
+            string currentDir = Directory.GetCurrentDirectory();
+            string currentDirConfig = Path.Combine(currentDir, ConfigFileName);
+            if (File.Exists(currentDirConfig)) return currentDirConfig;
+
+            string winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            if (!string.IsNullOrEmpty(winDir) && currentDir.StartsWith(winDir, StringComparison.OrdinalIgnoreCase))
+                return baseDirConfig;
+
+            return currentDirConfig;
         }
 
         /// <summary>
@@ -162,6 +177,55 @@ namespace PreySense.Core.Configuration
         }
 
         /// <summary>
+        /// Exports the active configuration to the specified file path in indented JSON format.
+        /// </summary>
+        public void ExportToFile(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                throw new ArgumentException("Export file path cannot be empty.", nameof(filePath));
+
+            lock (_gate)
+            {
+                var snapshot = Clone(_currentConfig);
+                string json = SerializeForFile(snapshot);
+                string? dir = Path.GetDirectoryName(filePath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+
+                File.WriteAllText(filePath, json);
+            }
+        }
+
+        /// <summary>
+        /// Imports and validates a configuration from the specified JSON file,
+        /// updates the active configuration and persists it to preysense.json.
+        /// </summary>
+        public PreySenseConfig ImportFromFile(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+                throw new FileNotFoundException($"Configuration file not found: '{filePath}'", filePath);
+
+            string json = File.ReadAllText(filePath);
+            if (string.IsNullOrWhiteSpace(json))
+                throw new InvalidOperationException("The configuration file is empty.");
+
+            PreySenseConfig imported;
+            try
+            {
+                imported = JsonSerializer.Deserialize<PreySenseConfig>(json, SerializerOptions)
+                    ?? throw new InvalidOperationException("Failed to deserialize configuration JSON.");
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidOperationException($"Invalid configuration JSON format: {ex.Message}", ex);
+            }
+
+            Validate(imported);
+            Save(imported);
+            return imported;
+        }
+
+        /// <summary>
         /// Validates values against safe operational boundaries.
         /// Throws ArgumentOutOfRangeException or FormatException on violation.
         /// </summary>
@@ -254,6 +318,8 @@ namespace PreySense.Core.Configuration
 
             if (config.Lighting.Cover.Speed is < 0 or > 100)
                 throw new ArgumentOutOfRangeException(nameof(config.Lighting.Cover.Speed), "Cover speed must be 0-100.");
+
+            config.Fans?.Calibration?.Normalize();
         }
 
         private static void ValidateModeTuning(string modeName, ModeTuningConfig mode)

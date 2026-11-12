@@ -99,25 +99,29 @@ public partial class MainViewModel
         if (request.ProchotOffsetCelsius is < 0 or > 63)
             return new(false, "PROCHOT offset must be between 0 and 63°C.");
         if (DriverTuningExecutor is not null) return DriverTuningExecutor(request);
-        var backend = CpuDriverRuntime.Backend ?? throw new InvalidOperationException(CpuDriverRuntime.Status);
-        var cpu = CpuDriverRuntime.PowerLimits ?? throw new InvalidOperationException(CpuDriverRuntime.Status);
-        var prochot = new CpuProchotController(backend);
-        if (request.ProchotOffsetCelsius is int requestedOffset && !prochot.CanSetOffset(requestedOffset, out string preflight))
-            return new(false, preflight);
-        ulong mchbar = 0;
-        if (request.ApplyCpuLimits && !backend.TryReadMchbar(out mchbar))
-            return new(false, "Could not find CPU power registers.");
+
+        var backend = CpuDriverRuntime.Backend;
+        var cpu = CpuDriverRuntime.PowerLimits;
 
         if (request.ApplyGpuLimits)
         {
+            if (backend == null)
+                return new(false, "ERM4 platform limits require kernel driver.");
             var gpu = new AcerProfileApplyTransaction(backend, new TuningModeController(this))
                 .Apply(request.Mode, request.Offsets.DeltaWatts, request.Offsets.DynamicBoostWatts, (byte)request.Offsets.PlatformOffsetWatts);
             if (!gpu.Success) return new(false, gpu.Status);
         }
         // Apply/Save with GPU off leaves the current Acer mode alone; mode restores set it first.
 
-        if (request.ApplyCpuLimits)
+        if (request.ApplyCpuLimits && !PreySense.Core.Hardware.CpuVendorHelper.IsAmd)
         {
+            if (backend == null || cpu == null)
+                return new(false, "CPU power limits require an active Intel kernel driver.");
+
+            ulong mchbar = 0;
+            if (!backend.TryReadMchbar(out mchbar))
+                return new(false, "Could not find CPU power registers.");
+
             // EC transitions reload CPU limits, so CPU registers must be written last.
             var tuning = TuningStore.GetCurrent().Tuning;
             var result = cpu.ExecuteCombinedTransaction(
@@ -130,6 +134,11 @@ public partial class MainViewModel
 
         if (request.ProchotOffsetCelsius is int offset)
         {
+            if (backend == null)
+                return new(false, "PROCHOT offset requires kernel driver.");
+            var prochot = new CpuProchotController(backend);
+            if (!prochot.CanSetOffset(offset, out string preflight))
+                return new(false, preflight);
             if (!prochot.TrySetOffset(offset, out string prochotStatus))
                 return new(false, prochotStatus);
         }
@@ -175,11 +184,27 @@ public partial class MainViewModel
 
     private void ApplyGpuClocksForProfile(ModeTuningConfig profile)
     {
-        if (!IsGpuClockTuningAvailable) return;
-        if (profile.ApplyGpuClockOffsets)
-            Gpu.NvidiaGpuControl.Shared.SetClocks(profile.GpuCoreClockOffsetMhz ?? 0, profile.GpuMemoryClockOffsetMhz ?? 0);
+        if (IsGpuClockTuningAvailable)
+        {
+            if (profile.ApplyGpuClockOffsets)
+                Gpu.NvidiaGpuControl.Shared.SetClocks(profile.GpuCoreClockOffsetMhz ?? 0, profile.GpuMemoryClockOffsetMhz ?? 0);
+            else
+                Gpu.NvidiaGpuControl.Shared.ResetClocks();
+        }
+
+        if (profile.ApplyGpuClockLock && !IsGpuProfileTuningAvailable)
+        {
+            int mhz = profile.GpuFrequencyCeilingMhz
+                ?? (profile.GpuClockLockWatts.HasValue ? Gpu.GpuFrequencyCeilingConverter.WattsToFrequencyCeilingMhz(profile.GpuClockLockWatts.Value) : 0);
+            if (mhz > 0)
+                Gpu.NvidiaGpuControl.Shared.SetGpuClockCeiling(mhz);
+            else
+                Gpu.NvidiaGpuControl.Shared.ResetGpuClockCeiling();
+        }
         else
-            Gpu.NvidiaGpuControl.Shared.ResetClocks();
+        {
+            Gpu.NvidiaGpuControl.Shared.ResetGpuClockCeiling();
+        }
     }
 
     internal DriverTuningResult RestoreSavedPowerMode(byte mode)
@@ -234,11 +259,15 @@ public partial class MainViewModel
                 profile.GpuCoreClockOffsetMhz = null;
                 profile.GpuMemoryClockOffsetMhz = null;
                 profile.ApplyGpuClockOffsets = false;
+                profile.ApplyGpuClockLock = false;
+                profile.GpuClockLockWatts = null;
+                profile.GpuFrequencyCeilingMhz = null;
             }
             cfg.Tuning.ProchotOffsetCelsius = null;
             cfg.Tuning.ApplyProchotOffset = false;
         });
         if (IsGpuClockTuningAvailable) Gpu.NvidiaGpuControl.Shared.ResetClocks();
+        Gpu.NvidiaGpuControl.Shared.ResetGpuClockCeiling();
     }
 
     private void ResetAllTuningEditorsToFactory()
@@ -256,7 +285,8 @@ public partial class MainViewModel
         PreySense.Core.Driver.GpuPowerOffsets offsets, bool persist, int? prochotOffsetCelsius = null, bool applyProchotOffset = false,
         bool applyCpuLimits = true, bool applyGpuLimits = true, bool persistApplySwitches = true,
         bool restoreMsrToStaticFloor = false,
-        int? gpuCoreClock = null, int? gpuMemoryClock = null, bool applyGpuClocks = false)
+        int? gpuCoreClock = null, int? gpuMemoryClock = null, bool applyGpuClocks = false,
+        int? gpuClockLockWatts = null, int? gpuFrequencyCeilingMhz = null, bool applyGpuClockLock = false)
     {
         applyProchotOffset &= !IsProchotOffsetLocked;
         if (applyProchotOffset && prochotOffsetCelsius is null)
@@ -264,7 +294,7 @@ public partial class MainViewModel
             DiagnosticMessage = "Enter a PROCHOT offset, or turn its switch off.";
             return false;
         }
-        if (!applyCpuLimits && !applyGpuLimits && !applyProchotOffset && !applyGpuClocks)
+        if (!applyCpuLimits && !applyGpuLimits && !applyProchotOffset && !applyGpuClocks && !applyGpuClockLock)
         {
             DiagnosticMessage = "Turn on CPU limits, GPU limits, GPU clocks, or PROCHOT first.";
             return false;
@@ -280,7 +310,7 @@ public partial class MainViewModel
         IsBusy = true;
         try
         {
-            AppLogger.Log($"[Tuning] Apply mode=0x{mode:X2} CPU={(applyCpuLimits ? $"{pl1}/{pl2}/τ{tau}" : "off")} GPU={(applyGpuLimits ? $"Δ{offsets.DeltaWatts}/DB{offsets.DynamicBoostWatts}/CP{offsets.PlatformOffsetWatts}" : "off")} Clocks={(applyGpuClocks ? $"{gpuCoreClock}/{gpuMemoryClock}" : "off")}");
+            AppLogger.Log($"[Tuning] Apply mode=0x{mode:X2} CPU={(applyCpuLimits ? $"{pl1}/{pl2}/τ{tau}" : "off")} GPU={(applyGpuLimits ? $"Δ{offsets.DeltaWatts}/DB{offsets.DynamicBoostWatts}/CP{offsets.PlatformOffsetWatts}" : (applyGpuClockLock ? $"LockCeiling{gpuFrequencyCeilingMhz}MHz/{gpuClockLockWatts}W" : "off"))} Clocks={(applyGpuClocks ? $"{gpuCoreClock}/{gpuMemoryClock}" : "off")}");
             if (applyCpuLimits || applyGpuLimits || applyProchotOffset)
             {
                 var applied = await Task.Run(() => ExecuteDriverTuning(new(mode, pl1, pl2, tau, offsets,
@@ -294,6 +324,13 @@ public partial class MainViewModel
                 else if (!applyGpuClocks)
                     await Task.Run(() => Gpu.NvidiaGpuControl.Shared.ResetClocks());
             }
+            if (!IsGpuProfileTuningAvailable)
+            {
+                if (applyGpuClockLock && gpuFrequencyCeilingMhz.HasValue)
+                    await Task.Run(() => Gpu.NvidiaGpuControl.Shared.SetGpuClockCeiling(gpuFrequencyCeilingMhz.Value));
+                else
+                    await Task.Run(() => Gpu.NvidiaGpuControl.Shared.ResetGpuClockCeiling());
+            }
             ActivePowerMode = await Task.Run(() => _hw.CurrentPowerMode);
             UpdateModeName(ActivePowerMode);
             NotifyModeSelectionsChanged();
@@ -305,6 +342,7 @@ public partial class MainViewModel
                 bool saveGpu = persistApplySwitches && applyGpuLimits;
                 bool saveProchot = persistApplySwitches && applyProchotOffset;
                 bool saveClocks = persistApplySwitches && applyGpuClocks;
+                bool saveClockLock = persistApplySwitches && applyGpuClockLock;
                 TuningStore.Update(cfg =>
                 {
                     var profile = mode switch { 0 => cfg.Tuning.Quiet, 1 => cfg.Tuning.Balanced,
@@ -313,6 +351,9 @@ public partial class MainViewModel
                     profile.ApplyCpuLimits = saveCpu;
                     profile.ApplyGpuLimits = saveGpu;
                     profile.ApplyGpuClockOffsets = saveClocks;
+                    profile.ApplyGpuClockLock = saveClockLock;
+                    profile.GpuClockLockWatts = gpuClockLockWatts;
+                    profile.GpuFrequencyCeilingMhz = gpuFrequencyCeilingMhz;
                     profile.GpuCoreClockOffsetMhz = gpuCoreClock;
                     profile.GpuMemoryClockOffsetMhz = gpuMemoryClock;
                     profile.CpuPl1Watts = pl1; profile.CpuPl2Watts = pl2; profile.TauSeconds = tau;

@@ -5,8 +5,9 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              mc:Ignorable="d" 
              d:DesignWidth="400"
-             x:Name="RootDropdownRow">
-    <Grid HorizontalAlignment="Stretch" MinHeight="28" Margin="{DynamicResource StandardRowMargin}">
+             x:Name="RootDropdownRow"
+             ToolTipService.ShowOnDisabled="True">
+    <Grid Background="Transparent" HorizontalAlignment="Stretch" MinHeight="28" Margin="{DynamicResource StandardRowMargin}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />

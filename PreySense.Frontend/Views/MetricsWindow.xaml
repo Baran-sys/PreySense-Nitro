@@ -6,7 +6,7 @@
         xmlns:controls="clr-namespace:PreySense.Frontend.Controls"
         mc:Ignorable="d"
         Title="PreySense • Overlay"
-        Width="480"
+        Width="576"
         SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         Foreground="{DynamicResource TextPrimaryBrush}"
@@ -30,7 +30,8 @@
                 <Border Style="{StaticResource OriginalSectionPanelStyle}" Margin="0,0,0,8">
                     <StackPanel>
                         <!-- Enable Metrics Overlay -->
-                        <Grid Margin="0,4">
+                        <Grid Background="Transparent" Margin="0,4"
+                              ToolTip="Show or hide the real-time hardware performance overlay on screen (hotkey: Predator/Nitro + R).">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -44,7 +45,8 @@
                         <Separator Margin="0,4,0,8"/>
 
                         <!-- HUD Scale -->
-                        <Grid Margin="{StaticResource StandardRowMargin}">
+                        <Grid Background="Transparent" Margin="{StaticResource StandardRowMargin}"
+                              ToolTip="Adjust the overall size of the on-screen overlay text, icons, and graphs (50% to 200%).">
                             <StackPanel>
                                 <Grid>
                                     <TextBlock Text="HUD Scale" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
@@ -55,7 +57,8 @@
                         </Grid>
 
                         <!-- Background Opacity -->
-                        <Grid Margin="0,4">
+                        <Grid Background="Transparent" Margin="0,4"
+                              ToolTip="Adjust how transparent or solid the overlay background panel appears.">
                             <StackPanel>
                                 <Grid>
                                     <TextBlock Text="Background Opacity" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
@@ -66,7 +69,8 @@
                         </Grid>
 
                         <!-- Text Opacity -->
-                        <Grid Margin="0,4">
+                        <Grid Background="Transparent" Margin="0,4"
+                              ToolTip="Adjust the opacity of overlay metric labels and numbers.">
                             <StackPanel>
                                 <Grid>
                                     <TextBlock Text="Text Opacity" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
@@ -81,15 +85,18 @@
                         <!-- Horizontal Position -->
                         <controls:SettingDropdownRow x:Name="DropdownHorizontalPos"
                                                      Title="Horizontal Position"
+                                                     ToolTip="Choose whether the overlay anchors to the Left, Center, or Right edge of the screen."
                                                      SelectionChanged="PositionDropdown_SelectionChanged" />
 
                         <!-- Vertical Position -->
                         <controls:SettingDropdownRow x:Name="DropdownVerticalPos"
                                                      Title="Vertical Position"
+                                                     ToolTip="Choose whether the overlay anchors to the Top, Center, or Bottom edge of the screen."
                                                      SelectionChanged="PositionDropdown_SelectionChanged" />
 
                         <!-- Show FPS Counter -->
-                        <Grid Margin="0,4">
+                        <Grid Background="Transparent" Margin="0,4"
+                              ToolTip="Display real-time frame rate (FPS) measured via Windows graphics events when supported.">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -110,7 +117,8 @@
                     <StackPanel>
                         <Grid Margin="0,2,0,6">
                             <TextBlock Text="Overlay Metric Slots" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <Button x:Name="ButtonAddSlot" Content="+ Add Slot" HorizontalAlignment="Right" Width="88" Height="26" Padding="6,2" Click="ButtonAddSlot_Click"/>
+                            <Button x:Name="ButtonAddSlot" Content="+ Add Slot" HorizontalAlignment="Right" Width="108" Height="26" Padding="8,2" Click="ButtonAddSlot_Click"
+                                    ToolTip="Add a new metric row to customize which CPU and GPU sensors are displayed."/>
                         </Grid>
                         <StackPanel x:Name="PanelColumnsContainer"/>
                     </StackPanel>

@@ -67,14 +67,32 @@ public partial class MainViewModel
         });
         if (!_disposed)
         {
+            bool autoEnabled = false;
             if (snapshot is { } value)
+            {
                 TuningStore.Update(cfg =>
                 {
+                    bool firstDiscovery = !value.Locked
+                        && cfg.Tuning.FactoryProchotOffsetCelsius is null
+                        && cfg.Tuning.ProchotOffsetCelsius is null
+                        && !cfg.Tuning.ApplyProchotOffset;
                     cfg.Tuning.FactoryProchotOffsetLocked = value.Locked;
                     cfg.Tuning.FactoryProchotOffsetCelsius ??= value.OffsetCelsius;
                     cfg.Tuning.FactoryTjMaxCelsius ??= value.TjMaxCelsius;
+                    if (firstDiscovery)
+                    {
+                        cfg.Tuning.ProchotOffsetCelsius = value.OffsetCelsius;
+                        cfg.Tuning.ApplyProchotOffset = true;
+                        autoEnabled = true;
+                    }
                 });
+            }
             UpdateProchotLockState(snapshot);
+            if (autoEnabled && snapshot is { Locked: false } unlocked)
+            {
+                ProchotOffsetCelsius = unlocked.OffsetCelsius;
+                IsProchotOffsetEnabled = true;
+            }
         }
     }
 }

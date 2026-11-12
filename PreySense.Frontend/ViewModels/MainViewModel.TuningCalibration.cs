@@ -15,9 +15,17 @@ public partial class MainViewModel
     private bool _updatingTuningEnabled;
     private void SetTuningEnabledState(bool enabled)
     {
-        _updatingTuningEnabled = true;
-        try { IsHardwareTuningEnabled = enabled; }
-        finally { _updatingTuningEnabled = false; }
+        void Apply()
+        {
+            _updatingTuningEnabled = true;
+            try { IsHardwareTuningEnabled = enabled; }
+            finally { _updatingTuningEnabled = false; }
+        }
+
+        if (_dispatcher == null || _dispatcher.CheckAccess())
+            Apply();
+        else
+            _dispatcher.Invoke(Apply);
     }
 
     internal sealed record FactoryDefaultsCapture(
@@ -44,8 +52,13 @@ public partial class MainViewModel
         }
     }
 
-    private static bool HasCompleteFactoryDefaults(TuningConfig tuning) =>
-        tuning.HasFactoryDefaults && tuning.HasFactoryStaticCpuLimits;
+    private static bool HasCompleteFactoryDefaults(TuningConfig tuning)
+    {
+        if (CpuVendorHelper.IsAmd)
+            return tuning.FactoryDefaults != null && tuning.FactoryDefaults.Count >= 5;
+
+        return tuning.HasFactoryDefaults && tuning.HasFactoryStaticCpuLimits;
+    }
 
     private async Task CaptureMissingFactoryDefaultsCoreAsync()
     {
@@ -74,6 +87,7 @@ public partial class MainViewModel
                 throw new InvalidOperationException("Factory defaults are incomplete.");
             // Commit the complete fresh capture together. Missing optional readings stay null,
             // rather than inheriting metadata from an earlier capture.
+            bool autoEnabledProchot = false;
             TuningStore.Update(cfg =>
             {
                 cfg.Tuning.FactoryDefaults = capture.Profiles;
@@ -82,7 +96,21 @@ public partial class MainViewModel
                 cfg.Tuning.FactoryProchotOffsetCelsius = capture.ProchotOffsetCelsius;
                 cfg.Tuning.FactoryProchotOffsetLocked = capture.ProchotOffsetLocked;
                 cfg.Tuning.FactoryTjMaxCelsius = capture.TjMaxCelsius;
+                if (capture.ProchotOffsetCelsius is int capturedProchot &&
+                    capture.ProchotOffsetLocked != true &&
+                    cfg.Tuning.ProchotOffsetCelsius is null &&
+                    !cfg.Tuning.ApplyProchotOffset)
+                {
+                    cfg.Tuning.ProchotOffsetCelsius = capturedProchot;
+                    cfg.Tuning.ApplyProchotOffset = true;
+                    autoEnabledProchot = true;
+                }
             });
+            if (autoEnabledProchot && capture.ProchotOffsetCelsius is int prochotVal)
+            {
+                ProchotOffsetCelsius = prochotVal;
+                IsProchotOffsetEnabled = true;
+            }
             if (capture.GpuBaselineWatts.HasValue) GpuBasePowerWatts = capture.GpuBaselineWatts;
             OnPropertyChanged(nameof(IsGpuProfileTuningAvailable));
             OnPropertyChanged(nameof(IsGpuClockTuningAvailable));
@@ -131,7 +159,24 @@ public partial class MainViewModel
         {
             int? detectedGpu = PreySense.Gpu.NvmlHelper.GetGpuDefaultPowerLimitWatts();
             if (detectedGpu.HasValue) gpuBaselineWatts = GpuPowerBaseline.SaveOnce(detectedGpu.Value);
+            gpuBaselineWatts ??= 80;
         }
+
+        if (CpuVendorHelper.IsAmd)
+        {
+            var fallback = new Dictionary<string, ModeTuningConfig>();
+            foreach (var mode in new[] { "Eco", "Quiet", "Balanced", "Performance", "Turbo" })
+            {
+                fallback[mode] = new ModeTuningConfig
+                {
+                    GpuWatts = gpuBaselineWatts,
+                    ApplyGpuLimits = false,
+                    CpuBoost = true
+                };
+            }
+            return new(fallback, null, null, null, null, null, gpuBaselineWatts);
+        }
+
         var backend = CpuDriverRuntime.Backend ?? throw new InvalidOperationException(CpuDriverRuntime.Status);
         var calibration = new DriverFactoryCalibration(backend, backend);
         var profiles = calibration.Capture(gpuBaselineWatts, new TuningModeController(this));
@@ -156,6 +201,11 @@ public partial class MainViewModel
                 return;
             }
 
+            if (CpuVendorHelper.IsAmd && CaptureTuningDefaults is null && !HasCompleteFactoryDefaults(TuningStore.GetCurrent().Tuning))
+            {
+                EnsureFallbackFactoryDefaults();
+            }
+
             if (!HasCompleteFactoryDefaults(TuningStore.GetCurrent().Tuning))
             {
                 SetTuningEnabledState(false);
@@ -163,7 +213,28 @@ public partial class MainViewModel
                 DiagnosticMessage = "Tuning stays off until factory defaults are ready.";
                 return;
             }
-            TuningStore.Update(cfg => cfg.General.HardwareTuningEnabled = true);
+
+            int? autoProchot = null;
+            TuningStore.Update(cfg =>
+            {
+                cfg.General.HardwareTuningEnabled = true;
+                if (!CpuVendorHelper.IsAmd &&
+                    IsProchotOffsetAvailable &&
+                    !IsProchotOffsetLocked &&
+                    cfg.Tuning.ProchotOffsetCelsius is null &&
+                    !cfg.Tuning.ApplyProchotOffset &&
+                    cfg.Tuning.FactoryProchotOffsetCelsius is int factoryProchot)
+                {
+                    cfg.Tuning.ProchotOffsetCelsius = factoryProchot;
+                    cfg.Tuning.ApplyProchotOffset = true;
+                    autoProchot = factoryProchot;
+                }
+            });
+            if (autoProchot is int prochotVal)
+            {
+                ProchotOffsetCelsius = prochotVal;
+                IsProchotOffsetEnabled = true;
+            }
             SetTuningEnabledState(true);
             DiagnosticMessage = "Tuning enabled.";
         }
@@ -178,6 +249,34 @@ public partial class MainViewModel
             if (gateHeld) _modeSwitchGate.Release();
             _tuningEnablePending = false;
         }
+    }
+
+    private void EnsureFallbackFactoryDefaults()
+    {
+        int? gpuBaselineWatts = GpuBasePowerWatts;
+        if (!gpuBaselineWatts.HasValue)
+        {
+            int? detectedGpu = PreySense.Gpu.NvmlHelper.GetGpuDefaultPowerLimitWatts();
+            if (detectedGpu.HasValue) gpuBaselineWatts = GpuPowerBaseline.SaveOnce(detectedGpu.Value);
+            gpuBaselineWatts ??= 80;
+        }
+
+        TuningStore.Update(cfg =>
+        {
+            cfg.Tuning.FactoryDefaults ??= new Dictionary<string, ModeTuningConfig>();
+            foreach (var mode in new[] { "Eco", "Quiet", "Balanced", "Performance", "Turbo" })
+            {
+                if (!cfg.Tuning.FactoryDefaults.ContainsKey(mode))
+                {
+                    cfg.Tuning.FactoryDefaults[mode] = new ModeTuningConfig
+                    {
+                        GpuWatts = gpuBaselineWatts,
+                        ApplyGpuLimits = false,
+                        CpuBoost = true
+                    };
+                }
+            }
+        });
     }
 
     private static string TuningModeName(int index) => index switch
@@ -212,7 +311,10 @@ public partial class MainViewModel
             ApplyGpuLimits = saved.ApplyGpuLimits,
             GpuCoreClockOffsetMhz = saved.GpuCoreClockOffsetMhz ?? 0,
             GpuMemoryClockOffsetMhz = saved.GpuMemoryClockOffsetMhz ?? 0,
-            ApplyGpuClockOffsets = saved.ApplyGpuClockOffsets
+            ApplyGpuClockOffsets = saved.ApplyGpuClockOffsets,
+            ApplyGpuClockLock = saved.ApplyGpuClockLock,
+            GpuClockLockWatts = saved.GpuClockLockWatts,
+            GpuFrequencyCeilingMhz = saved.GpuFrequencyCeilingMhz
         };
     }
 
@@ -229,4 +331,12 @@ public partial class MainViewModel
     /// <summary>NVIDIA GPU is valid and P0 clock offset tuning is supported.</summary>
     public bool IsGpuClockTuningAvailable =>
         Gpu.NvidiaGpuControl.Shared.IsValid && Gpu.NvidiaGpuControl.Shared.IsClockTuningSupported;
+
+    /// <summary>True if either Acer ERM4 GPU profile tuning or NVML frequency ceiling fallback is supported.</summary>
+    public bool IsGpuPowerControlAvailable =>
+        IsGpuProfileTuningAvailable || Gpu.NvidiaGpuControl.Shared.IsValid;
+
+    /// <summary>True when normal ERM4 GPU profile tuning is NOT available, but NVML clock ceiling is supported.</summary>
+    public bool IsGpuClockLockFallbackAvailable =>
+        !IsGpuProfileTuningAvailable && Gpu.NvidiaGpuControl.Shared.IsValid;
 }

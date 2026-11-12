@@ -98,7 +98,8 @@
                     <StackPanel Margin="{StaticResource WindowContentMargin}">
 
                 <!-- Global keyboard brightness and timeout controls remain visible above the target tabs. -->
-                <Border Style="{StaticResource OriginalSectionPanelStyle}" Margin="0,0,0,8">
+                <Border Background="Transparent" Style="{StaticResource OriginalSectionPanelStyle}" Margin="0,0,0,8"
+                        ToolTip="Set global RGB backlight brightness level (0% turns backlight off).">
                     <StackPanel>
                         <Grid Style="{StaticResource OriginalSectionTitlePanelStyle}" Margin="0,0,0,2">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -113,7 +114,8 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource OriginalSectionPanelStyle}" Margin="{StaticResource StandardSectionMargin}">
+                <Border Background="Transparent" Style="{StaticResource OriginalSectionPanelStyle}" Margin="{StaticResource StandardSectionMargin}"
+                        ToolTip="Automatically turn off keyboard backlight after the selected idle period (0s disables auto-off).">
                     <StackPanel>
                         <Grid Style="{StaticResource OriginalSectionTitlePanelStyle}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -151,7 +153,8 @@
                     </StackPanel.Style>
 
                     <!-- Lighting Mode Dropdown (Static vs Dynamic) - Clean Row Layout -->
-                    <Border Style="{StaticResource OriginalSectionPanelStyle}" Margin="0,0,0,8">
+                    <Border Background="Transparent" Style="{StaticResource OriginalSectionPanelStyle}" Margin="0,0,0,8"
+                            ToolTip="Choose between Static per-zone colors, hardware Dynamic EC effects, or Software animated effects.">
                         <Grid Margin="0,2">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -174,6 +177,7 @@
                         <StackPanel>
                             <!-- Synchronize All Zones Switch -->
                             <controls:SettingSwitchRow Title="Sync All Zones"
+                                                      ToolTip="Apply the same single color across all four keyboard zones."
                                                       IsChecked="{Binding IsRgbSyncZonesEnabled, Mode=TwoWay}"
                                                       Margin="0,0,0,6"/>
 
@@ -389,8 +393,10 @@
                     <Border Style="{StaticResource OriginalSectionPanelStyle}" Margin="0,0,0,8">
                         <StackPanel>
                             <controls:SettingSwitchRow Title="Logo Backlight"
+                                                      ToolTip="Turn the laptop lid cover logo backlight on or off."
                                                       IsChecked="{Binding IsCoverLightingEnabled, Mode=TwoWay}"/>
                             <controls:SettingSwitchRow Title="Sync With Keyboard"
+                                                      ToolTip="Match the lid logo color and mode to your keyboard lighting."
                                                       IsChecked="{Binding IsCoverSyncWithKeyboard, Mode=TwoWay}"/>
                         </StackPanel>
                     </Border>

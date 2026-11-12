@@ -43,7 +43,10 @@ namespace PreySense.Core.Services
         // Fan Control
         bool SetFanMode(byte cpuMode, byte gpuMode);
         bool SetFanSpeeds(byte cpuPercentage, byte gpuPercentage);
+        bool TrySetManualZeroFans() => false;
+        bool SetQuietIdleBase(bool enable, byte userPowerMode, byte quietBaseMode = 0x01) => false;
         void InvalidateFanTargets() { }
+        bool TryReadExactFanRpms(out int cpuRpm, out int gpuRpm) { cpuRpm = -1; gpuRpm = -1; return false; }
 
         // Battery Control
         int GetBatteryChargeLimit();

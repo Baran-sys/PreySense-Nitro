@@ -11,13 +11,13 @@
         ShowActivated="False"
         Focusable="False"
         MinWidth="160"
-        MaxWidth="220"
+        MaxWidth="360"
         Height="40"
         SizeToContent="Width"
         ResizeMode="NoResize">
 
     <Border x:Name="ToastBorder"
-            Background="#E6181A20"
+            Background="{DynamicResource ToastSurfaceBrush}"
             BorderBrush="#1FFFFFFF"
             BorderThickness="1"
             CornerRadius="20"
@@ -29,9 +29,9 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center">
             <Path x:Name="IconPathShape" Width="18" Height="18" Stretch="Uniform"
-                  Fill="#FFFFFF" VerticalAlignment="Center"/>
+                  Fill="{DynamicResource IconForegroundBrush}" VerticalAlignment="Center"/>
             <TextBlock x:Name="ModeLabel" Text="Balanced" Margin="9,0,0,0"
-                       Foreground="#F5F7FA" TextAlignment="Center"
+                       Foreground="{DynamicResource TextPrimaryBrush}" TextAlignment="Center"
                        VerticalAlignment="Center" FontFamily="Segoe UI"
                        FontSize="{DynamicResource FontSizeBody}" FontWeight="Medium"/>
         </StackPanel>

@@ -59,6 +59,12 @@ namespace PreySense.Frontend.ViewModels
                 IsTrayIconDisabled = cfg.General.DisableTrayIcon;
                 IsGlassEffectEnabled = cfg.General.GlassEffect;
                 IsLightTheme = cfg.General.LightTheme;
+                IsSmartBoostEnabled = cfg.General.SmartBoostEnabled;
+                IsFanDiagnosticsLogEnabled = cfg.General.FanDiagnosticsLogEnabled;
+                FanDiagnosticLogger.Shared.Enabled = IsFanDiagnosticsLogEnabled;
+                UpdateFanDemand();
+                SmartBoost.IsEnabled = IsSmartBoostEnabled;
+                UpdateSmartBoostDemand();
 
                 _suppressPowerProfile = true;
                 if (cfg.Session.AcPowerMode is 0 or 1 or 4 or 5 or 6)
@@ -94,6 +100,8 @@ namespace PreySense.Frontend.ViewModels
                     cfg.General.DisableTrayIcon = IsTrayIconDisabled;
                     cfg.General.GlassEffect = IsGlassEffectEnabled;
                     cfg.General.LightTheme = IsLightTheme;
+                    cfg.General.SmartBoostEnabled = IsSmartBoostEnabled;
+                    cfg.General.FanDiagnosticsLogEnabled = IsFanDiagnosticsLogEnabled;
                     cfg.Session.AcPowerMode = ProfileManager.SourceProfileMode(AcPowerModeIndex);
                     cfg.Session.BatteryPowerMode = ProfileManager.BatterySourceProfileModeOrDefault(BatteryPowerModeIndex);
                     cfg.Battery.BatteryEnergySaver = IsBatteryEnergySaverEnabled;
@@ -268,6 +276,28 @@ namespace PreySense.Frontend.ViewModels
 
         private void OnSystemPowerModeChanged(object sender, PowerModeChangedEventArgs e)
         {
+            if (e.Mode == PowerModes.StatusChange)
+            {
+                _ = App.Current?.Dispatcher.InvokeAsync(() =>
+                {
+                    if (_disposed)
+                        return;
+                    try
+                    {
+                        var source = _hw.GetPowerSource();
+                        if (source != PowerSourceKind.Unknown)
+                        {
+                            ApplyPowerSourceTransition(source);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLogger.Log($"OnSystemPowerModeChanged StatusChange: {ex.Message}");
+                    }
+                });
+                return;
+            }
+
             if (e.Mode != PowerModes.Resume)
                 return;
 

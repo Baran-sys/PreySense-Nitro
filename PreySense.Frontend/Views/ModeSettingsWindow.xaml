@@ -32,6 +32,7 @@
             <Border Grid.Row="1" Style="{StaticResource OriginalSectionPanelStyle}" Margin="14,8,14,0">
                 <StackPanel>
                     <controls:SettingSwitchRow Title="Enable Tuning"
+                        ToolTip="Allow PreySense to override CPU/GPU power limits, boost mode, PROCHOT, and GPU clock offsets."
                         IsChecked="{Binding IsHardwareTuningEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                     <Separator/>
                     <StackPanel IsEnabled="{Binding IsHardwareTuningEnabled}">
@@ -53,10 +54,13 @@
                             </Grid.ColumnDefinitions>
                             <controls:SettingValueRow x:Name="RowProchotOffset"
                                 Title="CPU PROCHOT Offset" AllowEmpty="True" Minimum="0" Maximum="63" Unit="&#xB0;C"
+                                ToolTip="Temperature offset below Tj-Max where the CPU begins thermal throttling (higher offset lowers max temperature)."
                                 IsValueEnabled="{Binding CanEditProchotOffset}"
                                 ValueAutomationId="GlobalProchotOffsetValue" LostFocus="RowProchotOffset_LostFocus"/>
                             <controls:RectangularSwitch x:Name="SwitchProchotOffset" Grid.Column="1" Width="56" Height="28"
                                 Margin="12,0,0,0" VerticalAlignment="Center"
+                                ToolTipService.ShowOnDisabled="True"
+                                ToolTip="Enable or disable applying the custom PROCHOT temperature offset (Intel unlocked CPUs only)."
                                 IsEnabled="{Binding CanToggleProchotOffset}"
                                 IsChecked="{Binding IsProchotOffsetEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                 Checked="ProchotOffsetToggle_Changed" Unchecked="ProchotOffsetToggle_Changed"
@@ -98,6 +102,8 @@
                                 <ComboBoxItem Content="Turbo"/>
                             </ComboBox>
                         </Grid>
+                        <controls:SettingSwitchRow x:Name="SyncAllModesRow" Title="Sync All Modes"
+                            ToolTip="Apply saved tuning changes across Eco, Quiet, Balanced, Performance, and Turbo modes simultaneously."/>
                     </StackPanel>
                 </Border>
 
@@ -106,7 +112,13 @@
                     <StackPanel Margin="14,0,14,0">
 
                         <Border Style="{StaticResource OriginalSectionPanelStyle}" Margin="0,0,0,8">
-                            <controls:SettingDropdownRow x:Name="DropdownCpuBoost" Title="CPU Boost" DropdownMinWidth="220"/>
+                            <StackPanel>
+                                <controls:SettingDropdownRow x:Name="DropdownCpuBoost" Title="CPU Boost" DropdownMinWidth="220"
+                                    ToolTip="Controls Windows processor performance boost policy for the selected power mode."/>
+                                <controls:SettingSwitchRow Title="Smart Boost"
+                                    ToolTip="Dynamically steps down CPU boost when package temperature reaches 90°C and raises fan floor to prevent thermal throttling."
+                                    IsChecked="{Binding IsSmartBoostEnabled, Mode=TwoWay}"/>
+                            </StackPanel>
                         </Border>
 
                         <!-- CPU POWER LIMITS -->
@@ -123,6 +135,8 @@
                                     </StackPanel>
                                     <controls:RectangularSwitch x:Name="SwitchApplyCpuLimits" Grid.Column="1"
                                         Width="56" Height="28" VerticalAlignment="Center"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        ToolTip="Enable or disable custom CPU PL1, PL2, and Tau power limits for this performance mode."
                                         AutomationProperties.AutomationId="EnableCpuPowerLimits"
                                         AutomationProperties.Name="Apply CPU power limits"
                                         Checked="ApplyLimitsToggle_Changed" Unchecked="ApplyLimitsToggle_Changed"/>
@@ -131,6 +145,7 @@
                                 <StackPanel x:Name="CpuLimitsPanel">
                                     <controls:SettingValueRow x:Name="RowPl1"
                                                               Title="Sustained Long Power [PL1]"
+                                                              ToolTip="Long-term sustained CPU package power limit in Watts."
                                                               AllowEmpty="True"
                                                               Minimum="5"
                                                               Maximum="300"
@@ -140,6 +155,7 @@
 
                                     <controls:SettingValueRow x:Name="RowPl2"
                                                               Title="Burst Peak Power [PL2]"
+                                                              ToolTip="Short-term peak CPU boost power limit in Watts."
                                                               AllowEmpty="True"
                                                               Minimum="5"
                                                               Maximum="300"
@@ -148,7 +164,8 @@
                                                               LostFocus="RowPl2_LostFocus"/>
 
                                     <!-- Tau Duration Slider -->
-                                    <Grid Margin="{StaticResource StandardRowMargin}">
+                                    <Grid Background="Transparent" Margin="{StaticResource StandardRowMargin}"
+                                          ToolTip="Maximum duration the CPU is allowed to run at PL2 before settling down to PL1.">
                                         <StackPanel Margin="0,5,0,0">
                                             <Grid>
                                                 <TextBlock Text="Turbo Time Limit [Tau]" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
@@ -175,7 +192,9 @@
                                     </StackPanel>
                                     <controls:RectangularSwitch x:Name="SwitchApplyGpuLimits" Grid.Column="1"
                                         Width="56" Height="28" VerticalAlignment="Center"
-                                        IsEnabled="{Binding IsGpuProfileTuningAvailable}"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        ToolTip="Enable or disable custom GPU power limit / frequency-ceiling capping for this mode."
+                                        IsEnabled="{Binding IsGpuPowerControlAvailable}"
                                         AutomationProperties.AutomationId="EnableGpuPowerLimits"
                                         AutomationProperties.Name="Apply GPU power limits"
                                         Checked="ApplyLimitsToggle_Changed" Unchecked="ApplyLimitsToggle_Changed"/>
@@ -184,6 +203,7 @@
                                 <StackPanel x:Name="GpuLimitsPanel">
                                     <controls:SettingValueRow x:Name="RowGpuPower"
                                                               Title="Power Limit" UnavailableText="N/A"
+                                                              ToolTip="Nominal GPU power target calculated from baseline and offsets."
                                                               IsEnabled="False"
                                                               AllowEmpty="True"
                                                               Unit="W"
@@ -191,26 +211,48 @@
                                                               ValueAutomationId="ModeGpuPowerValue"
                                                               LostFocus="RowGpuPower_LostFocus"/>
 
-                                    <StackPanel Margin="{StaticResource StandardRowMargin}">
+                                    <StackPanel Background="Transparent" Margin="{StaticResource StandardRowMargin}"
+                                                ToolTip="Additional GPU TGP wattage offset above the factory baseline.">
                                         <Grid>
                                             <TextBlock Text="Delta" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
                                             <TextBlock x:Name="LabelGpuDelta" HorizontalAlignment="Right"/>
                                         </Grid>
                                         <Slider x:Name="SliderGpuDelta" Minimum="0" Maximum="100" SmallChange="5" LargeChange="5" TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,4,0,0" AutomationProperties.AutomationId="ModeGpuDeltaValue" AutomationProperties.Name="GPU Delta" ValueChanged="GpuOffsets_ValueChanged"/>
                                     </StackPanel>
-                                    <StackPanel Margin="{StaticResource StandardRowMargin}">
+                                    <StackPanel Background="Transparent" Margin="{StaticResource StandardRowMargin}"
+                                                ToolTip="NVIDIA Dynamic Boost power budget shifted from CPU to GPU when thermally available.">
                                         <Grid>
                                             <TextBlock Text="Dynamic Boost" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
                                             <TextBlock x:Name="LabelGpuDynamicBoost" HorizontalAlignment="Right"/>
                                         </Grid>
                                         <Slider x:Name="SliderGpuDynamicBoost" Minimum="0" Maximum="25" SmallChange="5" LargeChange="5" TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,4,0,0" AutomationProperties.AutomationId="ModeGpuDynamicBoostValue" AutomationProperties.Name="GPU Dynamic Boost" ValueChanged="GpuOffsets_ValueChanged"/>
                                     </StackPanel>
-                                    <StackPanel Margin="{StaticResource StandardRowMargin}">
+                                    <StackPanel Background="Transparent" Margin="{StaticResource StandardRowMargin}"
+                                                ToolTip="Additional combined CPU+GPU platform power headroom offset.">
                                         <Grid>
                                             <TextBlock Text="Platform Power Limit Offset" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
                                             <TextBlock x:Name="LabelPlatformPowerOffset" HorizontalAlignment="Right"/>
                                         </Grid>
                                         <Slider x:Name="SliderPlatformPowerOffset" Minimum="0" Maximum="100" SmallChange="5" LargeChange="5" TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,4,0,0" AutomationProperties.AutomationId="ModePlatformPowerOffsetValue" AutomationProperties.Name="Platform Power Limit Offset" ValueChanged="GpuOffsets_ValueChanged"/>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Nitro / Non-ERM4 Fallback Panel (Frequency Ceiling Watt Lock) -->
+                                <StackPanel x:Name="GpuClockLockPanel" Visibility="Collapsed">
+                                    <StackPanel Background="Transparent" Margin="{StaticResource StandardRowMargin}"
+                                                ToolTip="Caps maximum GPU boost clock to hold typical gaming draw near the target wattage on laptops without ERM4.">
+                                        <Grid>
+                                            <TextBlock Text="Target Power Limit" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
+                                            <TextBlock x:Name="LabelGpuClockLockPower" HorizontalAlignment="Right" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        </Grid>
+                                        <Slider x:Name="SliderGpuClockLockPower" Minimum="35" Maximum="140" SmallChange="5" LargeChange="10" TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,4,0,0" AutomationProperties.AutomationId="ModeGpuClockLockPowerValue" AutomationProperties.Name="GPU Power Limit" ValueChanged="SliderGpuClockLockPower_ValueChanged"/>
+                                    </StackPanel>
+                                    <StackPanel Background="Transparent" Margin="{StaticResource StandardRowMargin}"
+                                                ToolTip="Maximum NVIDIA GPU core clock (MHz) applied for the selected target wattage.">
+                                        <Grid>
+                                            <TextBlock Text="Frequency Ceiling" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
+                                            <TextBlock x:Name="LabelGpuFrequencyCeiling" HorizontalAlignment="Right" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        </Grid>
                                     </StackPanel>
                                 </StackPanel>
                             </StackPanel>
@@ -230,6 +272,8 @@
                                     </StackPanel>
                                     <controls:RectangularSwitch x:Name="SwitchApplyGpuClocks" Grid.Column="1"
                                         Width="56" Height="28" VerticalAlignment="Center"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        ToolTip="Enable or disable NVIDIA P0 core and memory clock offsets for this mode."
                                         IsEnabled="{Binding IsGpuClockTuningAvailable}"
                                         AutomationProperties.AutomationId="EnableGpuClocks"
                                         AutomationProperties.Name="Apply GPU clock offsets"
@@ -237,14 +281,16 @@
                                 </Grid>
 
                                 <StackPanel x:Name="GpuClocksPanel">
-                                    <StackPanel Margin="{StaticResource StandardRowMargin}">
+                                    <StackPanel Background="Transparent" Margin="{StaticResource StandardRowMargin}"
+                                                ToolTip="Shift the NVIDIA GPU core clock curve up or down in MHz via NVAPI.">
                                         <Grid>
                                             <TextBlock Text="Core Clock Offset" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
                                             <TextBlock x:Name="LabelGpuCoreClock" HorizontalAlignment="Right"/>
                                         </Grid>
                                         <Slider x:Name="SliderGpuCoreClock" Minimum="-200" Maximum="250" SmallChange="10" LargeChange="20" TickFrequency="10" IsSnapToTickEnabled="True" Margin="0,4,0,0" AutomationProperties.AutomationId="ModeGpuCoreClockValue" AutomationProperties.Name="Core Clock Offset" ValueChanged="GpuClocks_ValueChanged"/>
                                     </StackPanel>
-                                    <StackPanel Margin="{StaticResource StandardRowMargin}">
+                                    <StackPanel Background="Transparent" Margin="{StaticResource StandardRowMargin}"
+                                                ToolTip="Shift NVIDIA VRAM memory clock offset up or down in MHz via NVAPI.">
                                         <Grid>
                                             <TextBlock Text="Memory Clock Offset" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
                                             <TextBlock x:Name="LabelGpuMemoryClock" HorizontalAlignment="Right"/>

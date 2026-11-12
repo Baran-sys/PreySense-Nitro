@@ -60,6 +60,12 @@ public partial class MainViewModel
     {
         int boost = CpuBoostModeForMode(mode);
         CpuBoostMode = boost;
+        BumpSmartBoostEpoch();
+        if (SmartBoost != null)
+        {
+            SmartBoost.SetBaseMode(boost);
+            UpdateSmartBoostDemand();
+        }
         _lastCpuBoostApplySucceeded = PowerLimitController.SetCpuBoost(boost);
         if (!_lastCpuBoostApplySucceeded) DiagnosticMessage = "Could not apply CPU boost.";
         return _lastCpuBoostApplySucceeded;
@@ -69,6 +75,12 @@ public partial class MainViewModel
     {
         int boost = CpuBoostModeForMode(mode);
         CpuBoostMode = boost;
+        BumpSmartBoostEpoch();
+        if (SmartBoost != null)
+        {
+            SmartBoost.SetBaseMode(boost);
+            UpdateSmartBoostDemand();
+        }
         bool applied = await System.Threading.Tasks.Task.Run(() => PowerLimitController.SetCpuBoost(boost));
         _lastCpuBoostApplySucceeded = applied;
         if (!applied) DiagnosticMessage = "Could not apply CPU boost.";

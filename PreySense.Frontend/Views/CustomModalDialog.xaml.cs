@@ -16,6 +16,10 @@ namespace PreySense.Frontend.Views
         public CustomModalDialog()
         {
             InitializeComponent();
+            // Standalone unit tests run with Application.Current == null and rely on the local
+            // XAML ResourceDictionary; inside the live app, clear it so ThemeManager brushes win.
+            if (Application.Current?.Resources != null)
+                Resources.MergedDictionaries.Clear();
         }
 
         /// <summary>

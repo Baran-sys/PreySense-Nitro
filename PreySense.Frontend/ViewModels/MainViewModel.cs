@@ -119,6 +119,29 @@ namespace PreySense.Frontend.ViewModels
             }
 
             _lastAcState = onAc;
+
+            if (onAc)
+            {
+                if (IsBatteryLimitEnabled)
+                {
+                    _ = Task.Run(() =>
+                    {
+                        try { _hw.SetBatteryChargeLimit(1); } catch { }
+                    });
+                }
+                if (IsBatteryEnergySaverEnabled)
+                {
+                    _ = _energySaverWorker.Submit(false);
+                }
+            }
+            else
+            {
+                if (IsBatteryEnergySaverEnabled)
+                {
+                    _ = _energySaverWorker.Submit(true);
+                }
+            }
+
             AppLogger.Log($"Power source transition: {source}; applying {(onAc ? "AC" : "battery")} profile.");
             ApplyPowerProfileForSource(source);
         }
@@ -167,26 +190,26 @@ namespace PreySense.Frontend.ViewModels
                 CpuBoostModeName = GetCpuBoostModeName(CpuBoostMode);
 
                 // JSON preference paints the UI immediately; reconcile against live
-                // SCM state so a default `false` does not hide an already-debloated machine.
+                // SCM state and enforce debloat if preference is enabled ("durdur gelsin").
                 IsAcerServicesDebloated = cfg.General.AcerServicesDebloated;
                 DebloaterStatusText = IsAcerServicesDebloated
                     ? "Acer OEM Services: Stopped & Disabled (~400MB Saved)"
                     : "Acer OEM Services: Active";
                 _ = Task.Run(() =>
                 {
+                    if (cfg.General.AcerServicesDebloated)
+                    {
+                        try { AcerServiceDebloater.StopAndDisableAll(); } catch { }
+                    }
                     bool acerDisabled = AcerServiceDebloater.AreAllServicesDisabled();
                     _dispatcher.InvokeAsync(() =>
                     {
                         if (_disposed)
                             return;
-                        if (IsAcerServicesDebloated != acerDisabled)
-                        {
-                            IsAcerServicesDebloated = acerDisabled;
-                            DebloaterStatusText = acerDisabled
-                                ? "Acer OEM Services: Stopped & Disabled (~400MB Saved)"
-                                : "Acer OEM Services: Active";
-                            try { AcerServiceDebloater.SaveState(acerDisabled); } catch { }
-                        }
+                        IsAcerServicesDebloated = acerDisabled;
+                        DebloaterStatusText = acerDisabled
+                            ? "Acer OEM Services: Stopped & Disabled (~400MB Saved)"
+                            : "Acer OEM Services: Active";
                     });
                 });
             }
@@ -231,6 +254,9 @@ namespace PreySense.Frontend.ViewModels
             TauSeconds = TauForMode(ActivePowerMode);
 
             _ = InitializeTuningAndSessionAsync();
+            SmartBoost.SetBaseMode(CpuBoostMode);
+            TelemetryCoordinator.SnapshotAvailable += OnSmartBoostTelemetry;
+            UpdateSmartBoostDemand();
             if (_hw is MockHardwareService)
                 InitializeMockHardwareDiscovery();
             else
@@ -369,6 +395,9 @@ namespace PreySense.Frontend.ViewModels
             _lightingWorker.StopAsync(drainPending: true).GetAwaiter().GetResult();
             _disposed = true;
             _applicationReady.TrySetResult();
+            TelemetryCoordinator.SnapshotAvailable -= OnSmartBoostTelemetry;
+            TelemetryCoordinator.SetDemand(TelemetryDemand.SmartBoost, false);
+            SmartBoost.Reset();
             DisposeFanTelemetry();
             ReleaseCustomFans();
             PreySense.Core.Hardware.CpuDriverRuntime.Dispose();
@@ -385,6 +414,7 @@ namespace PreySense.Frontend.ViewModels
             CancelPendingModeSwitch();
             _modeSwitchGate.Dispose();
             _lightingDebouncer.Dispose();
+            _smartBoostWorker?.StopAsync(drainPending: true).GetAwaiter().GetResult();
             _energySaverWorker.StopAsync().GetAwaiter().GetResult();
             if (_coverSyncFrameHooked && _hw is ProductionHardwareService hooked)
             {
@@ -394,6 +424,11 @@ namespace PreySense.Frontend.ViewModels
             if (_hw is IDisposable disposableHardware)
                 disposableHardware.Dispose();
             GC.SuppressFinalize(this);
+        }
+
+        private void OnSmartBoostTelemetry(TelemetrySnapshot snapshot)
+        {
+            if (!_disposed && snapshot.IsValid) SmartBoost.ProcessTelemetry(snapshot.CpuTemp);
         }
 
         private string GetModeTitle(byte mode) => LocalizationService.Translate(mode switch

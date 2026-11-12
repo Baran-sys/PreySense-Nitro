@@ -309,4 +309,27 @@ public class TuningCalibrationTests
         Assert.IsFalse(_vm.IsProchotOffsetEnabled, "Reset restores the factory offset and clears the apply switch.");
         Assert.IsFalse(_vm.IsProchotOffsetLocked);
     }
+
+    [TestMethod]
+    public async Task StartupCapture_UnlockedProchotDefaultsToEnabled()
+    {
+        _vm.CaptureTuningDefaults = () => new(Defaults(), 55, 80, ProchotOffsetCelsius: 7, ProchotOffsetLocked: false, TjMaxCelsius: 100);
+        await _vm.CaptureMissingFactoryDefaultsAsync();
+        var saved = _store.Reload().Tuning;
+        Assert.IsTrue(saved.ApplyProchotOffset);
+        Assert.AreEqual(7, saved.ProchotOffsetCelsius);
+        Assert.IsTrue(_vm.IsProchotOffsetEnabled);
+        Assert.AreEqual(7, _vm.ProchotOffsetCelsius);
+    }
+
+    [TestMethod]
+    public async Task StartupCapture_LockedProchotStaysDisabled()
+    {
+        _vm.CaptureTuningDefaults = () => new(Defaults(), 55, 80, ProchotOffsetCelsius: 7, ProchotOffsetLocked: true, TjMaxCelsius: 100);
+        await _vm.CaptureMissingFactoryDefaultsAsync();
+        var saved = _store.Reload().Tuning;
+        Assert.IsFalse(saved.ApplyProchotOffset);
+        Assert.IsNull(saved.ProchotOffsetCelsius);
+        Assert.IsFalse(_vm.IsProchotOffsetEnabled);
+    }
 }

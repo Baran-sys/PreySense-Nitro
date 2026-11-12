@@ -82,12 +82,28 @@ namespace PreySense.Frontend.Services
             bool active = (requested & TelemetryMetrics.CpuClock) != 0;
             bool effective = (requested & TelemetryMetrics.CpuEffectiveClock) != 0;
             if (!active && !effective) return default;
+
             var sample = PreySense.Core.Hardware.CpuDriverRuntime.Telemetry?.SampleTopologyClocks(includeEffective: effective);
-            if (sample is not { } clocks) return default;
-            static int? Max(int? a, int? b) => a.HasValue && b.HasValue ? Math.Max(a.Value, b.Value) : a ?? b;
-            return new(active ? clocks.PCoreActiveMhz : null, active ? clocks.ECoreActiveMhz : null,
-                active ? Max(clocks.PCoreActiveMhz, clocks.ECoreActiveMhz) : null,
-                effective ? Max(clocks.PCoreEffectiveMhz, clocks.ECoreEffectiveMhz) : null);
+            if (sample is { } clocks && (clocks.PCoreActiveMhz.HasValue || clocks.ECoreActiveMhz.HasValue))
+            {
+                static int? Max(int? a, int? b) => a.HasValue && b.HasValue ? Math.Max(a.Value, b.Value) : a ?? b;
+                return new(active ? clocks.PCoreActiveMhz : null, active ? clocks.ECoreActiveMhz : null,
+                    active ? Max(clocks.PCoreActiveMhz, clocks.ECoreActiveMhz) : null,
+                    effective ? Max(clocks.PCoreEffectiveMhz, clocks.ECoreEffectiveMhz) : null);
+            }
+
+            // Universal Native OS Fallback: works on AMD Ryzen (ANV16-41 etc.) & systems without kernel MSR driver
+            var native = PreySense.Core.Hardware.NativeCpuInformation.SampleClocks();
+            if (native is { } n && n.MaxCurrentMhz > 0)
+            {
+                return new(
+                    PerformanceMhz: active ? n.MaxCurrentMhz : null,
+                    EfficiencyMhz: null,
+                    ActiveMhz: active ? n.MaxCurrentMhz : null,
+                    EffectiveMhz: effective ? n.AverageCurrentMhz : null);
+            }
+
+            return default;
         }
 
         (int? Performance, int? Efficiency) ITelemetrySources.ReadCpuClocks()
@@ -121,8 +137,10 @@ namespace PreySense.Frontend.Services
 
         (int? Cpu, int? Gpu) ITelemetrySources.ReadFanRpms(bool cpu, bool gpu)
         {
-            var fans = _wmi.ReadThermalSensors(includeTemperatures: false, readCpuRpm: cpu, readGpuRpm: gpu);
-            return (fans.CpuRpm >= 0 ? fans.CpuRpm : null, fans.GpuRpm >= 0 ? fans.GpuRpm : null);
+            if (!cpu && !gpu)
+                return (null, null);
+            var (cpuRpm, gpuRpm) = _wmi.ReadExactFanRpms(readCpuRpm: cpu, readGpuRpm: gpu);
+            return (cpu && cpuRpm >= 0 ? cpuRpm : null, gpu && gpuRpm >= 0 ? gpuRpm : null);
         }
 
         private static int? ReadMemorySpeed()
@@ -173,7 +191,18 @@ namespace PreySense.Frontend.Services
             return _wmi.SetFanControl(2, cpuPercentage, gpuPercentage);
         }
 
+        public bool TrySetManualZeroFans() => _wmi.SetManualZeroFansWmi();
+
+        public bool SetQuietIdleBase(bool enable, byte userPowerMode, byte quietBaseMode = 0x01) =>
+            _wmi.SetQuietIdleBase(enable, userPowerMode, quietBaseMode);
+
         public void InvalidateFanTargets() => _wmi.InvalidateFanTargets();
+
+        public bool TryReadExactFanRpms(out int cpuRpm, out int gpuRpm)
+        {
+            (cpuRpm, gpuRpm) = _wmi.ReadExactFanRpms();
+            return cpuRpm >= 0 || gpuRpm >= 0;
+        }
 
         public int GetBatteryChargeLimit()
         {

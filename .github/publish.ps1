@@ -1,7 +1,8 @@
 param(
     [string]$Configuration = "Release",
     [string]$Runtime = "win-x64",
-    [string]$Output = "dist"
+    [string]$Output = "dist",
+    [bool]$SelfContained = $true
 )
 
 $ErrorActionPreference = "Stop"
@@ -53,9 +54,11 @@ New-Item -ItemType Directory -Path $outputPath -Force | Out-Null
 dotnet publish PreySense.Frontend\PreySense.Frontend.csproj `
     -c $Configuration `
     -r $Runtime `
-    --self-contained false `
+    --self-contained $SelfContained `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:IncludeAllContentForSelfExtract=true `
+    -p:EnableCompressionInSingleFile=true `
     -p:DebugType=None `
     -p:DebugSymbols=false `
     -o $outputPath

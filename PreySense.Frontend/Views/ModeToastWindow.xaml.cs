@@ -32,11 +32,33 @@ namespace PreySense.Frontend.Views
 
         public static void ShowConfirmedMode(byte mode, string modeName)
         {
-            App.Current?.Dispatcher?.InvokeAsync(() =>
+            if (App.Current?.Dispatcher is not { HasShutdownStarted: false, HasShutdownFinished: false } dispatcher)
+                return;
+
+            dispatcher.InvokeAsync(() =>
             {
+                if (dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
+                    return;
                 _currentToast ??= new ModeToastWindow();
                 var (label, icon, borderBrushKey) = GetModeAppearance(mode, modeName);
-                _currentToast.Display(label, icon, borderBrushKey);
+                _currentToast.Display(Services.LocalizationService.Translate(label), icon, borderBrushKey);
+            });
+        }
+
+        public static void ShowNotice(string message, string borderBrushKey = "ModeTurboBrush")
+        {
+            if (string.IsNullOrWhiteSpace(message))
+                return;
+
+            if (App.Current?.Dispatcher is not { HasShutdownStarted: false, HasShutdownFinished: false } dispatcher)
+                return;
+
+            dispatcher.InvokeAsync(() =>
+            {
+                if (dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
+                    return;
+                _currentToast ??= new ModeToastWindow();
+                _currentToast.Display(message, ModeIconData.Balanced, borderBrushKey);
             });
         }
 

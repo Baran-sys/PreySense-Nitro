@@ -38,6 +38,7 @@ public static class ThemeManager
             ["ControlActiveColor"] = (Parse("#3E4450"), Parse("#D7E9F7")),
             ["ControlThumbBorderColor"] = (Parse("#EAEFF5"), Parse("#66717E")),
             ["ToastSurfaceColor"] = (Parse("#D8121216"), Parse("#F2FFFFFF")),
+            ["PopupSurfaceColor"] = (Parse("#1C1C1C"), Parse("#F5F6F8")),
             ["WarningSurfaceColor"] = (Parse("#2A1810"), Parse("#FFF4E8")),
             ["WarningSurfaceSubtleColor"] = (Parse("#251A10"), Parse("#FFF8EF")),
             ["WarningTextColor"] = (Parse("#F5B041"), Parse("#8A4500")),
@@ -93,11 +94,10 @@ public static class ThemeManager
 
             if (IsGlassEffectEnabled)
             {
-                // Deep dark obsidian smoked glass for Dark Mode; rich frosted translucent for Light Mode.
-                // Low opacity on the window background lets the DWM acrylic blur shine through strongly
-                // without washing out into milky white/gray.
-                var glassWindowBg = isLight ? Parse("#80F5F6F8") : Parse("#4508080C");
-                var glassCardBg = isLight ? Parse("#60FFFFFF") : Parse("#24101116");
+                // In glass mode, leave the WPF window background completely transparent in dark mode
+                // so the Windows 11 DWM Acrylic live composition shines through with maximum clarity and luminosity.
+                var glassWindowBg = isLight ? Parse("#10F5F6F8") : Parse("#00000000");
+                var glassCardBg = isLight ? Parse("#30FFFFFF") : Parse("#0EFFFFFF");
 
                 Application.Current.Resources["WindowBgColor"] = glassWindowBg;
                 SetBrush("WindowBgBrush", glassWindowBg);
@@ -116,25 +116,26 @@ public static class ThemeManager
                     : new LinearGradientBrush(
                         new GradientStopCollection
                         {
-                            new GradientStop(Color.FromArgb(90, 255, 255, 255), 0.0), // Crisp glass rim on top
-                            new GradientStop(Color.FromArgb(25, 255, 255, 255), 1.0)  // Subtle lower edge reflection
+                            new GradientStop(Color.FromArgb(55, 255, 255, 255), 0.0), // Soft glass rim on top
+                            new GradientStop(Color.FromArgb(18, 255, 255, 255), 1.0)  // Subtle lower edge reflection
                         },
                         new Point(0, 0), new Point(0, 1));
 
-                // Polished smoked glass buttons with top specular sheen and dark crystal depth
+                // Fluent frosted glass buttons with soft top sheen and high background translucency
+                // so the acrylic blur seamlessly diffuses across the entire window like the Windows 11 Start Menu.
                 Brush glassButtonRaised = isLight
                     ? new LinearGradientBrush(
                         new GradientStopCollection
                         {
-                            new GradientStop(Color.FromArgb(160, 255, 255, 255), 0.0),
-                            new GradientStop(Color.FromArgb(110, 240, 242, 246), 1.0)
+                            new GradientStop(Color.FromArgb(140, 255, 255, 255), 0.0),
+                            new GradientStop(Color.FromArgb(90, 240, 242, 246), 1.0)
                         },
                         new Point(0, 0), new Point(0, 1))
                     : new LinearGradientBrush(
                         new GradientStopCollection
                         {
-                            new GradientStop(Color.FromArgb(60, 36, 40, 50), 0.0), // Top specular frosted reflection
-                            new GradientStop(Color.FromArgb(75, 12, 13, 18), 1.0)  // Deep dark obsidian glass body
+                            new GradientStop(Color.FromArgb(24, 255, 255, 255), 0.0), // Delicate frosted top sheen
+                            new GradientStop(Color.FromArgb(10, 255, 255, 255), 1.0)  // Translucent acrylic plate
                         },
                         new Point(0, 0), new Point(0, 1));
 
@@ -142,15 +143,15 @@ public static class ThemeManager
                     ? new LinearGradientBrush(
                         new GradientStopCollection
                         {
-                            new GradientStop(Color.FromArgb(90, 255, 255, 255), 0.0),
-                            new GradientStop(Color.FromArgb(40, 0, 0, 0), 1.0)
+                            new GradientStop(Color.FromArgb(70, 0, 0, 0), 0.0),
+                            new GradientStop(Color.FromArgb(25, 0, 0, 0), 1.0)
                         },
                         new Point(0, 0), new Point(0, 1))
                     : new LinearGradientBrush(
                         new GradientStopCollection
                         {
-                            new GradientStop(Color.FromArgb(85, 255, 255, 255), 0.0), // Glass bevel top highlight
-                            new GradientStop(Color.FromArgb(20, 255, 255, 255), 1.0)  // Glass bevel bottom reflection
+                            new GradientStop(Color.FromArgb(38, 255, 255, 255), 0.0), // Soft glass bevel highlight
+                            new GradientStop(Color.FromArgb(12, 255, 255, 255), 1.0)  // Subtle glass bevel edge
                         },
                         new Point(0, 0), new Point(0, 1));
 
@@ -158,15 +159,15 @@ public static class ThemeManager
                     ? new LinearGradientBrush(
                         new GradientStopCollection
                         {
-                            new GradientStop(Color.FromArgb(220, 255, 255, 255), 0.0),
-                            new GradientStop(Color.FromArgb(170, 245, 247, 250), 1.0)
+                            new GradientStop(Color.FromArgb(200, 255, 255, 255), 0.0),
+                            new GradientStop(Color.FromArgb(150, 245, 247, 250), 1.0)
                         },
                         new Point(0, 0), new Point(0, 1))
                     : new LinearGradientBrush(
                         new GradientStopCollection
                         {
-                            new GradientStop(Color.FromArgb(85, 50, 56, 70), 0.0),
-                            new GradientStop(Color.FromArgb(90, 18, 20, 26), 1.0)
+                            new GradientStop(Color.FromArgb(50, 255, 255, 255), 0.0),
+                            new GradientStop(Color.FromArgb(25, 255, 255, 255), 1.0)
                         },
                         new Point(0, 0), new Point(0, 1));
 
@@ -181,19 +182,37 @@ public static class ThemeManager
                     : new LinearGradientBrush(
                         new GradientStopCollection
                         {
-                            new GradientStop(Color.FromArgb(90, 35, 120, 190), 0.0),
-                            new GradientStop(Color.FromArgb(80, 15, 60, 110), 1.0)
+                            new GradientStop(Color.FromArgb(85, 35, 120, 190), 0.0),
+                            new GradientStop(Color.FromArgb(65, 15, 60, 110), 1.0)
                         },
                         new Point(0, 0), new Point(0, 1));
 
-                var glassButtonSecond = isLight ? Parse("#70FFFFFF") : Parse("#450A0B10");
-                var glassButtonMain = isLight ? Parse("#90FFFFFF") : Parse("#3514151C");
+                var glassButtonSecond = isLight ? Parse("#70FFFFFF") : Parse("#20FFFFFF");
+                var glassButtonMain = isLight ? Parse("#90FFFFFF") : Parse("#12FFFFFF");
 
                 Application.Current.Resources["ButtonMainColor"] = glassButtonMain;
                 SetBrush("ButtonMainBrush", glassButtonMain);
 
                 Application.Current.Resources["ButtonSecondColor"] = glassButtonSecond;
                 SetBrush("ButtonSecondBrush", glassButtonSecond);
+
+                var glassBorderMain = isLight ? Parse("#30000000") : Parse("#24FFFFFF");
+                var glassBorderSecond = isLight ? Parse("#18000000") : Parse("#14FFFFFF");
+
+                Application.Current.Resources["BorderMainColor"] = glassBorderMain;
+                SetBrush("BorderMainBrush", glassBorderMain);
+
+                Application.Current.Resources["BorderSecondColor"] = glassBorderSecond;
+                SetBrush("BorderSecondBrush", glassBorderSecond);
+
+                var glassWindowSecond = isLight ? Parse("#F2F7F8FA") : Parse("#EA14161D");
+                var glassToastSurface = isLight ? Parse("#CCF7F8FA") : Parse("#B8101218");
+
+                Application.Current.Resources["PopupSurfaceColor"] = glassWindowSecond;
+                SetBrush("PopupSurfaceBrush", glassWindowSecond);
+
+                Application.Current.Resources["ToastSurfaceColor"] = glassToastSurface;
+                SetBrush("ToastSurfaceBrush", glassToastSurface);
 
                 SetBrush("ButtonHoverBrush", glassButtonHover);
                 SetBrush("ButtonRaisedBgBrush", glassButtonRaised);
@@ -206,6 +225,22 @@ public static class ThemeManager
                 var opaqueBorder = isLight ? Parse("#F5F6F8") : Parse("#1C1C1C");
                 Application.Current.Resources["WindowBorderColor"] = opaqueBorder;
                 SetBrush("WindowBorderBrush", opaqueBorder);
+
+                var opaqueBorderMain = isLight ? Palette["BorderMainColor"].Light : Palette["BorderMainColor"].Dark;
+                Application.Current.Resources["BorderMainColor"] = opaqueBorderMain;
+                SetBrush("BorderMainBrush", opaqueBorderMain);
+
+                var opaqueBorderSecond = isLight ? Palette["BorderSecondColor"].Light : Palette["BorderSecondColor"].Dark;
+                Application.Current.Resources["BorderSecondColor"] = opaqueBorderSecond;
+                SetBrush("BorderSecondBrush", opaqueBorderSecond);
+
+                var opaqueButtonMain = isLight ? Palette["ButtonMainColor"].Light : Palette["ButtonMainColor"].Dark;
+                Application.Current.Resources["ButtonMainColor"] = opaqueButtonMain;
+                SetBrush("ButtonMainBrush", opaqueButtonMain);
+
+                var opaqueButtonSecond = isLight ? Palette["ButtonSecondColor"].Light : Palette["ButtonSecondColor"].Dark;
+                Application.Current.Resources["ButtonSecondColor"] = opaqueButtonSecond;
+                SetBrush("ButtonSecondBrush", opaqueButtonSecond);
 
                 SetBrush("SelectedTileGradientBrush", isLight ? Parse("#E7F3FC") : Parse("#2E2E2E"));
                 SetBrush("ButtonRaisedBgBrush", isLight ? Parse("#FFFFFF") : Parse("#2E2E2E"));

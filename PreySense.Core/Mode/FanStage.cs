@@ -48,7 +48,6 @@ public sealed class FanStage
     public static int PhysicalRpmToDuty(int rpm, int maxRpm)
     {
         if (rpm <= 0) return 0;
-        if (rpm <= MinManualRpmFloor + 100) return 1;
         double span = Math.Max(1, maxRpm - MinManualRpmFloor);
         return Math.Clamp((int)Math.Round((Math.Clamp(rpm, MinManualRpmFloor, maxRpm) - MinManualRpmFloor) * 100.0 / span, MidpointRounding.AwayFromZero), 1, 100);
     }
@@ -122,6 +121,90 @@ public sealed class FanStage
             SetFall(stages[i], gpu, fall);
             stages[i].Normalize();
         }
+    }
+
+    /// <summary>
+    /// Inserts a new stage point at (<paramref name="celsius"/>, <paramref name="duty"/>) for only the specified
+    /// fan sensor while keeping existing stage ordering, unique temperatures, and monotonic duties intact.
+    /// </summary>
+    public static bool TryInsertVisibleStage(
+        FanStage[] stages,
+        bool gpu,
+        int celsius,
+        int duty,
+        int minCelsius,
+        int maxCelsius,
+        out int insertedVisibleIndex)
+    {
+        insertedVisibleIndex = -1;
+        if (stages is null || stages.Length < FanCurveProfile.StageCount)
+            return false;
+
+        var temps = new System.Collections.Generic.List<int>();
+        var duties = new System.Collections.Generic.List<int>();
+        for (int i = 1; i < stages.Length; i++)
+        {
+            if (!stages[i - 1].HasActiveRise(gpu))
+                break;
+
+            int entryC = Math.Clamp(stages[i - 1].RiseCelsius(gpu), minCelsius, maxCelsius);
+            if (temps.Count > 0 && entryC <= temps[^1])
+                entryC = Math.Min(maxCelsius, temps[^1] + 1);
+            if (entryC > maxCelsius)
+                continue;
+
+            temps.Add(entryC);
+            duties.Add(stages[i].DutyPercent(gpu));
+        }
+
+        if (temps.Count >= FanCurveProfile.StageCount - 1)
+            return false;
+
+        int targetC = Math.Clamp(celsius, minCelsius, maxCelsius);
+        int insertPos = 0;
+        while (insertPos < temps.Count && temps[insertPos] < targetC)
+            insertPos++;
+
+        if (insertPos < temps.Count && temps[insertPos] == targetC)
+        {
+            int prevBound = insertPos == 0 ? minCelsius - 1 : temps[insertPos - 1];
+            int nextBound = insertPos + 1 < temps.Count ? temps[insertPos + 1] : maxCelsius + 1;
+            if (targetC + 1 < nextBound)
+            {
+                targetC++;
+                insertPos++;
+            }
+            else if (targetC - 1 > prevBound)
+            {
+                targetC--;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        int minDuty = insertPos == 0 ? 0 : duties[insertPos - 1];
+        int maxDuty = insertPos == duties.Count ? 100 : duties[insertPos];
+        if (minDuty > maxDuty) (minDuty, maxDuty) = (maxDuty, minDuty);
+        int clampedDuty = Math.Clamp(duty, minDuty, maxDuty);
+
+        temps.Insert(insertPos, targetC);
+        duties.Insert(insertPos, clampedDuty);
+
+        int[] stageIndices = new int[temps.Count];
+        for (int i = 0; i < temps.Count; i++)
+            stageIndices[i] = i + 1;
+
+        ApplyEntryTemperatures(stages, stageIndices, temps.ToArray(), gpu);
+        for (int i = 0; i < duties.Count; i++)
+        {
+            stages[i + 1].SetDuty(gpu, duties[i]);
+            stages[i + 1].Normalize();
+        }
+
+        insertedVisibleIndex = insertPos;
+        return true;
     }
 
     /// <summary>Keeps active rises strictly increasing so graph X values stay unique.</summary>

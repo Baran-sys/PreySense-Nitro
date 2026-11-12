@@ -82,9 +82,9 @@ public class SelectedTelemetryTests
             TelemetryCoordinator.SetOverlayMetrics(TelemetryMetrics.CpuPower);
             Assert.AreEqual(TelemetryMetrics.CpuPower, TelemetryCoordinator.RequestedMetrics);
             TelemetryCoordinator.SetDemand(TelemetryDemand.FanController, true);
-            Assert.AreEqual(TelemetryMetrics.CpuPower | TelemetryMetrics.Temperatures, TelemetryCoordinator.RequestedMetrics);
+            Assert.AreEqual(TelemetryMetrics.CpuPower | TelemetryMetrics.Temperatures | TelemetryMetrics.CpuFanRpm | TelemetryMetrics.GpuFanRpm, TelemetryCoordinator.RequestedMetrics);
             TelemetryCoordinator.SetDemand(TelemetryDemand.Overlay, false);
-            Assert.AreEqual(TelemetryMetrics.Temperatures, TelemetryCoordinator.RequestedMetrics);
+            Assert.AreEqual(TelemetryMetrics.Temperatures | TelemetryMetrics.CpuFanRpm | TelemetryMetrics.GpuFanRpm, TelemetryCoordinator.RequestedMetrics);
         }
         finally { TelemetryCoordinator.Reset(); }
     }
@@ -171,7 +171,7 @@ public class SelectedTelemetryTests
             TelemetryCoordinator.SetDemand(TelemetryDemand.FanController, true);
             TelemetryCoordinator.SetDemand(TelemetryDemand.MainWindow, false);
             Assert.IsFalse(TelemetryCoordinator.HasUiDemand);
-            Assert.AreEqual(TelemetryMetrics.Temperatures, TelemetryCoordinator.RequestedMetrics);
+            Assert.AreEqual(TelemetryMetrics.Temperatures | TelemetryMetrics.CpuFanRpm | TelemetryMetrics.GpuFanRpm, TelemetryCoordinator.RequestedMetrics);
             TelemetryCoordinator.SetDemand(TelemetryDemand.FanController, false);
             Assert.AreEqual(TelemetryMetrics.None, TelemetryCoordinator.RequestedMetrics);
         }

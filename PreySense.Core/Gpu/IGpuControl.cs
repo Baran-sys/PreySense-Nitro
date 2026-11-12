@@ -18,5 +18,7 @@ namespace PreySense.Gpu
         int SetClocks(int coreMhz, int memoryMhz);
         bool GetClocks(out int coreMhz, out int memoryMhz, bool forceWake = false);
         int ResetClocks();
+        bool SetGpuClockCeiling(int maxClockMhz);
+        bool ResetGpuClockCeiling();
     }
 }

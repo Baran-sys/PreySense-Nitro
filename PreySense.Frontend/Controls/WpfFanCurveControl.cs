@@ -49,6 +49,7 @@ public sealed class WpfFanCurveControl : FrameworkElement
 
     public event EventHandler? Edited;
     public event EventHandler? SelectionChanged;
+    public event EventHandler<(int Celsius, int Duty)>? PointAddRequested;
 
     private bool _editingPoint, _dragging;
     private Point _dragOrigin;
@@ -65,7 +66,7 @@ public sealed class WpfFanCurveControl : FrameworkElement
         SetResourceReference(SurfaceProperty, "CardBgBrush");
     }
 
-    public const int MinCelsius = 40;
+    public const int MinCelsius = 30;
     public const int MaxCelsius = 100;
 
     private Rect Plot => new(42, 14, Math.Max(1, ActualWidth - 58), Math.Max(1, ActualHeight - 42));
@@ -104,27 +105,71 @@ public sealed class WpfFanCurveControl : FrameworkElement
             Label(dc, Temperatures[i] + "°", x - 10, plot.Bottom + 7);
         }
         if (PointCount == 0) return;
-        var line = new Pen(Accent, 2);
-        int leadDuty = LeadInDuty ?? Values[0];
-        Point first = At(0, Values[0]);
-        Point last = At(PointCount - 1, Values[PointCount - 1]);
-        double leadY = plot.Bottom - plot.Height * Math.Clamp(leadDuty, 0, 100) / 100.0;
-        // Hold duty on Y until the next stage X (step curve), with lead-in/out.
-        dc.DrawLine(line, new(plot.Left, leadY), new(first.X, leadY));
-        if (Math.Abs(leadY - first.Y) > 0.5)
-            dc.DrawLine(line, new(first.X, leadY), first);
-        for (int i = 1; i < PointCount; i++)
+        var line = new Pen(Accent, 2)
         {
-            Point previous = At(i - 1, Values[i - 1]);
-            Point next = At(i, Values[i]);
-            dc.DrawLine(line, previous, new(next.X, previous.Y));
-            if (Math.Abs(previous.Y - next.Y) > 0.5)
-                dc.DrawLine(line, new(next.X, previous.Y), next);
-        }
-        if (last.X < plot.Right)
-            dc.DrawLine(line, last, new(plot.Right, last.Y));
+            LineJoin = PenLineJoin.Round,
+            StartLineCap = PenLineCap.Round,
+            EndLineCap = PenLineCap.Round
+        };
+        int leadDuty = LeadInDuty ?? Values[0];
+        double leadY = plot.Bottom - plot.Height * Math.Clamp(leadDuty, 0, 100) / 100.0;
+        var pts = new Point[PointCount];
         for (int i = 0; i < PointCount; i++)
-            dc.DrawEllipse(i == SelectedIndex ? Accent : Surface, line, At(i, Values[i]), i == SelectedIndex ? 5 : 3, i == SelectedIndex ? 5 : 3);
+            pts[i] = At(i, Values[i]);
+
+        var geom = BuildSmoothCurveGeometry(plot, leadY, pts);
+        dc.DrawGeometry(null, line, geom);
+        for (int i = 0; i < PointCount; i++)
+            dc.DrawEllipse(i == SelectedIndex ? Accent : Surface, line, pts[i], i == SelectedIndex ? 5 : 3, i == SelectedIndex ? 5 : 3);
+    }
+
+    private static StreamGeometry BuildSmoothCurveGeometry(Rect plot, double leadY, Point[] pts)
+    {
+        var geom = new StreamGeometry();
+        using var ctx = geom.Open();
+        Point first = pts[0];
+        Point last = pts[^1];
+
+        Point[] curvePts;
+        if (first.X > plot.Left + 0.5)
+        {
+            curvePts = new Point[pts.Length + 1];
+            curvePts[0] = new Point(plot.Left, leadY);
+            Array.Copy(pts, 0, curvePts, 1, pts.Length);
+        }
+        else
+        {
+            curvePts = pts;
+        }
+
+        ctx.BeginFigure(curvePts[0], isFilled: false, isClosed: false);
+
+        int n = curvePts.Length;
+        if (n >= 2)
+        {
+            var xs = new double[n];
+            var ys = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                xs[i] = curvePts[i].X;
+                ys[i] = curvePts[i].Y;
+            }
+
+            double[] tangent = MonotoneCubicInterpolator.ComputeTangents(xs, ys);
+            for (int i = 0; i < n - 1; i++)
+            {
+                var (c1x, c1y, c2x, c2y) = MonotoneCubicInterpolator.GetBezierControlPoints(
+                    xs[i], ys[i], tangent[i],
+                    xs[i + 1], ys[i + 1], tangent[i + 1]);
+                ctx.BezierTo(new Point(c1x, c1y), new Point(c2x, c2y), curvePts[i + 1], isStroked: true, isSmoothJoin: true);
+            }
+        }
+
+        if (last.X < plot.Right)
+            ctx.LineTo(new(plot.Right, last.Y), isStroked: true, isSmoothJoin: true);
+
+        geom.Freeze();
+        return geom;
     }
 
     private void Label(DrawingContext dc, string text, double x, double y)
@@ -189,6 +234,14 @@ public sealed class WpfFanCurveControl : FrameworkElement
         if (r.Width <= 0) return MinCelsius;
         double t = (x - r.Left) / r.Width;
         return (int)Math.Round(MinCelsius + Math.Clamp(t, 0, 1) * (MaxCelsius - MinCelsius));
+    }
+
+    private int YToDuty(double y)
+    {
+        var r = Plot;
+        if (r.Height <= 0) return 0;
+        double t = (r.Bottom - y) / r.Height;
+        return (int)Math.Round(Math.Clamp(t, 0, 1) * 100.0);
     }
 
     /// <summary>Raise any descending duties so the visible curve stays nondecreasing.</summary>
@@ -272,6 +325,25 @@ public sealed class WpfFanCurveControl : FrameworkElement
     {
         base.OnMouseLeftButtonUp(e);
         if (IsMouseCaptured) { EndPointEdit(); e.Handled = true; }
+    }
+
+    protected override void OnMouseRightButtonDown(MouseButtonEventArgs e)
+    {
+        base.OnMouseRightButtonDown(e);
+        if (!IsEnabled || _editingPoint || IsMouseCaptured) return;
+        Point p = e.GetPosition(this);
+        if (!Plot.Contains(p)) return;
+        int hit = HitPoint(p);
+        if (hit >= 0)
+        {
+            SelectedIndex = hit;
+            e.Handled = true;
+            return;
+        }
+        if (PointCount >= FanCurveProfile.StageCount - 1) return;
+        Focus();
+        PointAddRequested?.Invoke(this, (XToCelsius(p.X), YToDuty(p.Y)));
+        e.Handled = true;
     }
 
     protected override void OnLostMouseCapture(MouseEventArgs e)

@@ -20,10 +20,61 @@ namespace PreySense.Frontend.ViewModels
         [ObservableProperty] private int _batteryLimitPercent = 80;
 
         // Platform Features
+        private int _smartBoostEpoch;
+        private LatestBackgroundWorker<(int Mode, int Epoch)>? _smartBoostWorker;
+        private LatestBackgroundWorker<(int Mode, int Epoch)> SmartBoostWorker => _smartBoostWorker ??= new(
+            req =>
+            {
+                if (req.Epoch == System.Threading.Volatile.Read(ref _smartBoostEpoch))
+                    PreySense.Mode.PowerLimitController.SetCpuBoost(req.Mode);
+            },
+            (_, latest) => latest);
+
+        private PreySense.Core.Services.SmartBoostController? _smartBoost;
+        public PreySense.Core.Services.SmartBoostController SmartBoost =>
+            _smartBoost ??= new(mode => SmartBoostWorker.Submit((mode, System.Threading.Volatile.Read(ref _smartBoostEpoch))));
+        [ObservableProperty] private bool _isSmartBoostEnabled = true;
+
+        internal void BumpSmartBoostEpoch() => System.Threading.Interlocked.Increment(ref _smartBoostEpoch);
+
+        internal void UpdateSmartBoostDemand()
+        {
+            bool active = !_disposed && IsSmartBoostEnabled && SmartBoost.BasePerfBoostMode > 0;
+            PreySense.Core.Services.TelemetryCoordinator.SetDemand(PreySense.Core.Services.TelemetryDemand.SmartBoost, active);
+        }
+
+        partial void OnIsSmartBoostEnabledChanged(bool value)
+        {
+            SmartBoost.IsEnabled = value;
+            UpdateSmartBoostDemand();
+            if (!value) SmartBoost.Reset();
+            if (_disposed) return;
+            try
+            {
+                PreySense.Core.Configuration.ConfigurationService.Instance.Update(cfg => cfg.General.SmartBoostEnabled = value);
+            }
+            catch { }
+            DiagnosticMessage = value ? "Smart Boost enabled." : "Smart Boost disabled.";
+        }
+
         [ObservableProperty] private bool _isRunOnStartupEnabled = false;
         [ObservableProperty] private bool _isBootSoundEnabled = false;
         [ObservableProperty] private bool _isTrayIconDisabled = false;
+        [ObservableProperty] private bool _isFanDiagnosticsLogEnabled = false;
         internal Action<bool>? TrayIconVisibilityHandler { get; set; }
+
+        partial void OnIsFanDiagnosticsLogEnabledChanged(bool value)
+        {
+            PreySense.Core.Services.FanDiagnosticLogger.Shared.Enabled = value;
+            UpdateFanDemand();
+            if (_disposed) return;
+            try
+            {
+                PreySense.Core.Configuration.ConfigurationService.Instance.Update(cfg => cfg.General.FanDiagnosticsLogEnabled = value);
+            }
+            catch { }
+            DiagnosticMessage = value ? "Fan diagnostic log enabled." : "Fan diagnostic log disabled.";
+        }
 
         partial void OnIsTrayIconDisabledChanged(bool value)
         {
@@ -69,6 +120,72 @@ namespace PreySense.Frontend.ViewModels
             {
                 _startupPreferenceReads--;
                 OnPropertyChanged(nameof(CanChangeRunOnStartup));
+            }
+        }
+
+        [RelayCommand]
+        public void ExportSettings()
+        {
+            if (_disposed) return;
+            try
+            {
+                var sfd = new Microsoft.Win32.SaveFileDialog
+                {
+                    Title = "Export PreySense Settings",
+                    Filter = "JSON Files (*.json)|*.json",
+                    FileName = "preysense_backup.json",
+                    DefaultExt = ".json"
+                };
+
+                if (sfd.ShowDialog() == true)
+                {
+                    PreySense.Core.Configuration.ConfigurationService.Instance.ExportToFile(sfd.FileName);
+                    DiagnosticMessage = "Settings exported successfully.";
+                }
+            }
+            catch (Exception ex)
+            {
+                DiagnosticMessage = $"Export failed: {ex.Message}";
+            }
+        }
+
+        [RelayCommand]
+        public async Task CheckForUpdatesAsync()
+        {
+            if (_disposed) return;
+            await Services.UpdateCheckService.CheckForUpdatesAsync(isManualCheck: true);
+        }
+
+        [RelayCommand]
+        public async Task ImportSettingsAsync()
+        {
+            if (_disposed) return;
+            try
+            {
+                var ofd = new Microsoft.Win32.OpenFileDialog
+                {
+                    Title = "Import PreySense Settings",
+                    Filter = "JSON Files (*.json)|*.json",
+                    Multiselect = false
+                };
+
+                if (ofd.ShowDialog() == true)
+                {
+                    IsBusy = true;
+                    DiagnosticMessage = "Importing settings...";
+                    await Task.Run(() => PreySense.Core.Configuration.ConfigurationService.Instance.ImportFromFile(ofd.FileName));
+                    LoadSessionPreferences();
+                    await RestoreSessionSettingsAsync("import");
+                    DiagnosticMessage = "Settings imported successfully.";
+                }
+            }
+            catch (Exception ex)
+            {
+                DiagnosticMessage = $"Import failed: {ex.Message}";
+            }
+            finally
+            {
+                IsBusy = false;
             }
         }
 

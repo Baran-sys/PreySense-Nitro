@@ -9,7 +9,8 @@
       </Grid.RowDefinitions>
       <controls:WindowTitleBar xmlns:services="clr-namespace:PreySense.Frontend.Services" Grid.Row="0" Subtitle="{x:Static services:UpdateCheckService.DisplayVersion}">
         <controls:WindowTitleBar.Actions>
-          <Button AutomationProperties.AutomationId="BtnSettings" Style="{StaticResource TitleBarButtonStyle}" Click="SettingsButton_Click">
+          <Button AutomationProperties.AutomationId="BtnSettings" Style="{StaticResource TitleBarButtonStyle}" Click="SettingsButton_Click"
+                  ToolTip="Open application settings, language, theme, and power preferences.">
             <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-settings-32.png" Width="14" Height="14" />
           </Button>
         </controls:WindowTitleBar.Actions>
@@ -35,7 +36,8 @@
               </TextBlock>
             </Grid>
             <UniformGrid Columns="5" Rows="1" Margin="0,2,0,2">
-              <Button AutomationProperties.AutomationId="BtnModeEco" Command="{Binding SetModeCommand}" CommandParameter="6">
+              <Button AutomationProperties.AutomationId="BtnModeEco" Command="{Binding SetModeCommand}" CommandParameter="6"
+                      ToolTip="Maximum battery savings with minimal power limits and quiet fan behavior.">
                 <FrameworkElement.Style>
                   <Style BasedOn="{StaticResource OriginalRButtonTileStyle}" TargetType="{x:Type Button}">
                     <Style.Triggers>
@@ -52,7 +54,8 @@
                   <TextBlock FontSize="{DynamicResource FontSizeTile}" HorizontalAlignment="Center" Text="Eco" />
                 </StackPanel>
               </Button>
-              <Button AutomationProperties.AutomationId="BtnModeQuiet" Command="{Binding SetModeCommand}" CommandParameter="0">
+              <Button AutomationProperties.AutomationId="BtnModeQuiet" Command="{Binding SetModeCommand}" CommandParameter="0"
+                      ToolTip="Low-noise profile with moderate performance and restrained fan speeds.">
                 <FrameworkElement.Style>
                   <Style BasedOn="{StaticResource OriginalRButtonTileStyle}" TargetType="{x:Type Button}">
                     <Style.Triggers>
@@ -69,7 +72,8 @@
                   <TextBlock Text="Quiet" FontSize="{DynamicResource FontSizeTile}" HorizontalAlignment="Center" />
                 </StackPanel>
               </Button>
-              <Button AutomationProperties.AutomationId="BtnModeBalanced" CommandParameter="1" Command="{Binding SetModeCommand}">
+              <Button AutomationProperties.AutomationId="BtnModeBalanced" CommandParameter="1" Command="{Binding SetModeCommand}"
+                      ToolTip="Everyday balanced profile optimizing efficiency, acoustics, and responsiveness.">
                 <FrameworkElement.Style>
                   <Style BasedOn="{StaticResource OriginalRButtonTileStyle}" TargetType="{x:Type Button}">
                     <Style.Triggers>
@@ -86,7 +90,8 @@
                   <TextBlock Text="Balanced" FontSize="{DynamicResource FontSizeTile}" HorizontalAlignment="Center" />
                 </StackPanel>
               </Button>
-              <Button AutomationProperties.AutomationId="BtnModePerformance" CommandParameter="4" Command="{Binding SetModeCommand}">
+              <Button AutomationProperties.AutomationId="BtnModePerformance" CommandParameter="4" Command="{Binding SetModeCommand}"
+                      ToolTip="High CPU/GPU power limits and faster fan response for demanding workloads and gaming.">
                 <FrameworkElement.Style>
                   <Style BasedOn="{StaticResource OriginalRButtonTileStyle}" TargetType="{x:Type Button}">
                     <Style.Triggers>
@@ -103,7 +108,8 @@
                   <TextBlock Text="Performance" FontSize="{DynamicResource FontSizeTile}" TextTrimming="CharacterEllipsis" TextAlignment="Center" HorizontalAlignment="Center" />
                 </StackPanel>
               </Button>
-              <Button AutomationProperties.AutomationId="BtnModeTurbo" CommandParameter="5" Command="{Binding SetModeCommand}">
+              <Button AutomationProperties.AutomationId="BtnModeTurbo" CommandParameter="5" Command="{Binding SetModeCommand}"
+                      ToolTip="Maximum power delivery and aggressive cooling for peak gaming and rendering performance.">
                 <FrameworkElement.Style>
                   <Style BasedOn="{StaticResource OriginalRButtonTileStyle}" TargetType="{x:Type Button}">
                     <Style.Triggers>
@@ -143,7 +149,8 @@
               </TextBlock>
             </Grid>
             <UniformGrid Columns="{Binding GpuModeTileColumns}" Rows="1" Margin="0,2,0,2">
-              <Button Height="52" Margin="2.5" CommandParameter="1" Command="{Binding SetGpuMuxModeCommand}">
+              <Button Height="52" Margin="2.5" CommandParameter="1" Command="{Binding SetGpuMuxModeCommand}"
+                      ToolTip="NVIDIA Dynamic Display Switch: uses iGPU on desktop for efficiency and switches live to NVIDIA GPU during 3D loads without reboot.">
                 <FrameworkElement.Style>
                   <Style BasedOn="{StaticResource OriginalRButtonActionStyle}" TargetType="{x:Type Button}">
                     <Style.Triggers>
@@ -160,7 +167,8 @@
                   <TextBlock Text="Auto" FontSize="{DynamicResource FontSizeTile}" HorizontalAlignment="Center" TextAlignment="Center" />
                 </StackPanel>
               </Button>
-              <Button Height="52" Margin="2.5" CommandParameter="igpu" Command="{Binding SetGpuMuxModeCommand}" Visibility="{Binding ShowIgpuOnlyTile, Converter={StaticResource BoolToVis}}">
+              <Button Height="52" Margin="2.5" CommandParameter="igpu" Command="{Binding SetGpuMuxModeCommand}" Visibility="{Binding ShowIgpuOnlyTile, Converter={StaticResource BoolToVis}}"
+                      ToolTip="Run strictly on the integrated GPU and disable the discrete NVIDIA GPU in Windows for maximum battery life.">
                 <FrameworkElement.Style>
                   <Style BasedOn="{StaticResource OriginalRButtonActionStyle}" TargetType="{x:Type Button}">
                     <Style.Triggers>
@@ -177,7 +185,8 @@
                   <TextBlock Text="iGPU Only" FontSize="{DynamicResource FontSizeTile}" HorizontalAlignment="Center" TextAlignment="Center" />
                 </StackPanel>
               </Button>
-              <Button Height="52" Margin="2.5" CommandParameter="0" Command="{Binding SetGpuMuxModeCommand}" Visibility="{Binding ShowDdsGpuTiles, Converter={StaticResource BoolToVis}}">
+              <Button Height="52" Margin="2.5" CommandParameter="0" Command="{Binding SetGpuMuxModeCommand}" Visibility="{Binding ShowDdsGpuTiles, Converter={StaticResource BoolToVis}}"
+                      ToolTip="Optimus mode: integrated GPU always drives the display while the NVIDIA GPU sleeps when idle or renders 3D apps through iGPU.">
                 <FrameworkElement.Style>
                   <Style BasedOn="{StaticResource OriginalRButtonActionStyle}" TargetType="{x:Type Button}">
                     <Style.Triggers>
@@ -204,7 +213,8 @@
                   <TextBlock Text="Hybrid" FontSize="{DynamicResource FontSizeTile}" HorizontalAlignment="Center" TextAlignment="Center" />
                 </StackPanel>
               </Button>
-              <Button Height="52" Margin="2.5" CommandParameter="2" Command="{Binding SetGpuMuxModeCommand}" Visibility="{Binding ShowAdvancedOptimusTile, Converter={StaticResource BoolToVis}}">
+              <Button Height="52" Margin="2.5" CommandParameter="2" Command="{Binding SetGpuMuxModeCommand}" Visibility="{Binding ShowAdvancedOptimusTile, Converter={StaticResource BoolToVis}}"
+                      ToolTip="Connect the internal display directly to the NVIDIA GPU via DDS without rebooting for lowest latency and highest FPS.">
                 <FrameworkElement.Style>
                   <Style BasedOn="{StaticResource OriginalRButtonActionStyle}" TargetType="{x:Type Button}">
                     <Style.Triggers>
@@ -221,7 +231,8 @@
                   <TextBlock Text="Advanced Optimus" FontSize="{DynamicResource FontSizeTile}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
                 </StackPanel>
               </Button>
-              <Button Height="52" Margin="2.5" Command="{Binding SetBiosDiscreteGpuCommand}" Visibility="{Binding ShowDgpuOnlyTile, Converter={StaticResource BoolToVis}}">
+              <Button Height="52" Margin="2.5" Command="{Binding SetBiosDiscreteGpuCommand}" Visibility="{Binding ShowDgpuOnlyTile, Converter={StaticResource BoolToVis}}"
+                      ToolTip="Switch the firmware MUX exclusively to the discrete NVIDIA GPU and bypass iGPU (requires restart).">
                 <Button.Style>
                   <Style BasedOn="{StaticResource OriginalRButtonActionStyle}" TargetType="{x:Type Button}">
                     <Style.Triggers>
@@ -262,7 +273,8 @@
                 <ColumnDefinition Width="2*" />
               </Grid.ColumnDefinitions>
 
-              <Button Grid.Column="0" Height="32" HorizontalAlignment="Stretch" Margin="2.5,0,5,0" Command="{Binding ToggleAutoRefreshRateCommand}">
+              <Button Grid.Column="0" Height="32" HorizontalAlignment="Stretch" Margin="2.5,0,5,0" Command="{Binding ToggleAutoRefreshRateCommand}"
+                      ToolTip="Automatically drop the display refresh rate to 60 Hz on battery and restore full Hz on AC.">
                 <FrameworkElement.Style>
                   <Style BasedOn="{StaticResource OriginalRButtonActionStyle}" TargetType="{x:Type Button}">
                     <Style.Triggers>
@@ -278,6 +290,7 @@
               </Button>
 
               <ComboBox Grid.Column="1" Height="32" Margin="0,0,2.5,0"
+                        ToolTip="Manually choose the active panel refresh rate."
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Center"
                         VerticalContentAlignment="Center"
@@ -297,19 +310,22 @@
           <RowDefinition Height="29"/>
         </Grid.RowDefinitions>
         <UniformGrid Grid.Row="0" Columns="3" HorizontalAlignment="Stretch">
-          <Button AutomationProperties.AutomationId="BtnNavLighting" Style="{StaticResource WindowFooterButtonStyle}" Click="KeyboardButton_Click">
+          <Button AutomationProperties.AutomationId="BtnNavLighting" Style="{StaticResource WindowFooterButtonStyle}" Click="KeyboardButton_Click"
+                  ToolTip="Customize keyboard zones, dynamic effects, and lid logo lighting.">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
               <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-color-32.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
               <TextBlock Text="Lighting" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
-          <Button AutomationProperties.AutomationId="BtnNavMetrics" Style="{StaticResource WindowFooterButtonStyle}" Click="MetricsButton_Click">
+          <Button AutomationProperties.AutomationId="BtnNavMetrics" Style="{StaticResource WindowFooterButtonStyle}" Click="MetricsButton_Click"
+                  ToolTip="Configure the in-game hardware monitoring HUD overlay and metric slots.">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
               <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-soonvibes-32.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
               <TextBlock Text="Overlay" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
-          <Button AutomationProperties.AutomationId="BtnNavFans" Style="{StaticResource WindowFooterButtonStyle}" Click="FansButton_Click">
+          <Button AutomationProperties.AutomationId="BtnNavFans" Style="{StaticResource WindowFooterButtonStyle}" Click="FansButton_Click"
+                  ToolTip="Calibrate fans, edit custom RPM curves, and tune ramp/hysteresis behavior.">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
               <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-fan-32.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
               <TextBlock Text="Fans" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
@@ -317,13 +333,15 @@
           </Button>
         </UniformGrid>
         <UniformGrid Grid.Row="2" Columns="2" HorizontalAlignment="Stretch">
-          <Button AutomationProperties.AutomationId="BtnNavMode" Style="{StaticResource WindowFooterButtonStyle}" Click="ModeSettingsButton_Click">
+          <Button AutomationProperties.AutomationId="BtnNavMode" Style="{StaticResource WindowFooterButtonStyle}" Click="ModeSettingsButton_Click"
+                  ToolTip="Tune CPU boost, power limits (PL1/PL2), PROCHOT, Smart Boost, and GPU clocks/power.">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
               <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-processor-32.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
               <TextBlock Text="Tuning" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
-          <Button AutomationProperties.AutomationId="BtnNavQuit" Style="{StaticResource WindowFooterButtonStyle}" Click="QuitButton_Click">
+          <Button AutomationProperties.AutomationId="BtnNavQuit" Style="{StaticResource WindowFooterButtonStyle}" Click="QuitButton_Click"
+                  ToolTip="Close PreySense completely and restore default GPU clocks.">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
               <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-quit-32.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
               <TextBlock Text="Quit" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />

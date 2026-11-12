@@ -37,8 +37,12 @@ namespace PreySense.Helpers
         private int _lastSetFanMode = -1;
         private int _lastSetCpuSpeed = -1;
         private int _lastSetGpuSpeed = -1;
-        private byte _activeUserPowerMode = 0x01;
-        private bool _quietEcOverrideActive = false;
+        private bool _fanTargetsInvalidated = false;
+        private bool _lastSetManualZero = false;
+        private bool _safeQuietIdleActive = false;
+        internal Func<string, ulong, (bool success, ulong output)>? CommandOverride { get; set; }
+        private byte _safeQuietIdleUserMode = 0x01;
+        private byte _safeQuietIdleBaseMode = 0x01;
         private Color[] _zoneColors = new Color[4] { 
             Color.FromArgb(0, 150, 255), 
             Color.FromArgb(0, 150, 255), 
@@ -114,6 +118,9 @@ namespace PreySense.Helpers
         {
             lock (_lock)
             {
+                if (CommandOverride != null)
+                    return CommandOverride(method, input);
+
                 try
                 {
                     var obj = GetWmiObject();
@@ -581,6 +588,32 @@ namespace PreySense.Helpers
             }
         }
 
+        /// <summary>
+        /// Reads exact unrounded tachometer RPMs for CPU and GPU fans directly from Acer WMI sensors.
+        /// </summary>
+        public (int CpuRpm, int GpuRpm) ReadExactFanRpms(bool readCpuRpm = true, bool readGpuRpm = true)
+        {
+            lock (_lock)
+            {
+                try
+                {
+                    var obj = GetWmiObject();
+                    if (obj == null)
+                        return (-1, -1);
+
+                    using var inParams = obj.GetMethodParameters(AcerWmi.GamingMethods.GetSystemInfo);
+                    int cpuRpm = readCpuRpm ? ReadSensor(obj, inParams, AcerWmi.Sensors.CpuFanRpm) : -1;
+                    int gpuRpm = readGpuRpm ? ReadSensor(obj, inParams, AcerWmi.Sensors.GpuFanRpm) : -1;
+                    return (cpuRpm, gpuRpm);
+                }
+                catch
+                {
+                    InvalidateCache();
+                    return (-1, -1);
+                }
+            }
+        }
+
         private int GetSensorReading(ulong sensorId)
         {
             lock (_lock)
@@ -627,6 +660,121 @@ namespace PreySense.Helpers
         }
 
 
+        public bool SetQuietIdleBase(bool enable, byte userPowerMode, byte quietBaseMode = 0x01)
+        {
+            if (enable)
+            {
+                if (quietBaseMode is not (0x00 or 0x01 or 0x06) || !IsKnownOperatingMode(userPowerMode))
+                    return false;
+                if (userPowerMode == quietBaseMode || (userPowerMode is 0x00 or 0x06 && quietBaseMode != 0x06))
+                    return false;
+
+                lock (_lock)
+                {
+                    if (_safeQuietIdleActive
+                        && _safeQuietIdleUserMode == userPowerMode
+                        && _safeQuietIdleBaseMode == quietBaseMode)
+                        return true;
+
+                    ulong payload = 0x0Bul | ((ulong)quietBaseMode << 8);
+                    var (success, _) = SendCommand(AcerWmi.GamingMethods.SetMiscSetting, payload);
+                    if (!success)
+                        return false;
+
+                    _safeQuietIdleActive = true;
+                    _safeQuietIdleUserMode = userPowerMode;
+                    _safeQuietIdleBaseMode = quietBaseMode;
+                    _fanTargetsInvalidated = true;
+                }
+
+                AppLogger.Log($"[SafeQuietIdle] Engaged EC Auto base (0x{quietBaseMode:X2}) for user mode 0x{userPowerMode:X2}.");
+                SyncWindowsPowerMode(userPowerMode);
+                ApplyConfiguredCpuLimitsForMode(userPowerMode);
+                return true;
+            }
+
+            byte restoreMode;
+            lock (_lock)
+            {
+                if (!_safeQuietIdleActive)
+                    return true;
+
+                restoreMode = IsKnownOperatingMode(userPowerMode) ? userPowerMode : _safeQuietIdleUserMode;
+                if (!IsKnownOperatingMode(restoreMode))
+                    restoreMode = 0x01;
+
+                ulong payload = 0x0Bul | ((ulong)restoreMode << 8);
+                var (success, _) = SendCommand(AcerWmi.GamingMethods.SetMiscSetting, payload);
+                if (!success)
+                    return false;
+
+                _safeQuietIdleActive = false;
+                _safeQuietIdleUserMode = restoreMode;
+                _safeQuietIdleBaseMode = restoreMode;
+                _fanTargetsInvalidated = true;
+            }
+
+            AppLogger.Log($"[SafeQuietIdle] Restored native power mode 0x{restoreMode:X2}.");
+            SyncWindowsPowerMode(restoreMode);
+            ApplyConfiguredCpuLimitsForMode(restoreMode);
+            return true;
+        }
+
+        private static void ApplyConfiguredCpuLimitsForMode(byte userPowerMode)
+        {
+            try
+            {
+                var cfg = PreySense.Core.Configuration.ConfigurationService.Instance.GetCurrent();
+                var tuning = cfg.Tuning;
+                var modeCfg = userPowerMode switch
+                {
+                    0x00 => tuning.Quiet,
+                    0x06 => tuning.Eco,
+                    0x04 => tuning.Performance,
+                    0x05 => tuning.Turbo,
+                    _ => tuning.Balanced
+                };
+
+                if (cfg.General.HardwareTuningEnabled && modeCfg.ApplyCpuLimits && modeCfg.HasCpuLimitValues)
+                {
+                    int pl1 = modeCfg.CpuPl1Watts!.Value;
+                    int pl2 = modeCfg.CpuPl2Watts!.Value;
+                    int tau = modeCfg.TauSeconds ?? PreySense.Core.Driver.CpuPowerLimitConfiguration.FactoryTauSeconds;
+                    bool ok = PowerLimitController.SetCpuPowerLimits(
+                        pl1,
+                        pl2,
+                        pl2Enable: true,
+                        tauSeconds: tau,
+                        staticPl1FloorWatts: tuning.FactoryStaticCpuPl1Watts,
+                        staticPl2FloorWatts: tuning.FactoryStaticCpuPl2Watts);
+                    AppLogger.Log($"[SafeQuietIdle] Applied configured CPU limits for 0x{userPowerMode:X2} (PL1={pl1}W, PL2={pl2}W, Tau={tau}s): ok={ok}");
+                    return;
+                }
+
+                if (cfg.General.HardwareTuningEnabled
+                    && tuning.HasFactoryDefaults
+                    && tuning.FactoryDefaults.TryGetValue(ProfileManager.ModeToProfileName(userPowerMode), out var factoryProfile)
+                    && factoryProfile.HasCpuLimitValues)
+                {
+                    int pl1 = factoryProfile.CpuPl1Watts!.Value;
+                    int pl2 = factoryProfile.CpuPl2Watts!.Value;
+                    int tau = factoryProfile.TauSeconds ?? PreySense.Core.Driver.CpuPowerLimitConfiguration.FactoryTauSeconds;
+                    bool ok = PowerLimitController.SetCpuPowerLimits(
+                        pl1,
+                        pl2,
+                        pl2Enable: true,
+                        tauSeconds: tau,
+                        staticPl1FloorWatts: tuning.FactoryStaticCpuPl1Watts,
+                        staticPl2FloorWatts: tuning.FactoryStaticCpuPl2Watts);
+                    AppLogger.Log($"[SafeQuietIdle] Preserved factory CPU limits for 0x{userPowerMode:X2} (PL1={pl1}W, PL2={pl2}W, Tau={tau}s): ok={ok}");
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error($"[SafeQuietIdle] Failed to apply CPU limits for mode 0x{userPowerMode:X2}: {ex.Message}");
+            }
+        }
+
         public bool SetPowerMode(byte mode)
         {
             ulong payload = (ulong)0x0B | ((ulong)mode << 8);
@@ -637,12 +785,17 @@ namespace PreySense.Helpers
             if (!success)
                 return false;
 
+            bool wasSafeQuietIdle;
             lock (_lock)
             {
-                _activeUserPowerMode = mode;
-                _quietEcOverrideActive = false;
-                _lastSetFanMode = -1;
+                wasSafeQuietIdle = _safeQuietIdleActive;
+                _safeQuietIdleActive = false;
+                _safeQuietIdleUserMode = mode;
+                _safeQuietIdleBaseMode = mode;
+                _fanTargetsInvalidated = true;
             }
+            if (wasSafeQuietIdle)
+                AppLogger.Log($"[SafeQuietIdle] Restored native power mode 0x{mode:X2} via SetPowerMode.");
             SyncWindowsPowerMode(mode);
             if (TryGetRawEcPowerProfileWmi(out byte postMode) && postMode == mode)
                 AppLogger.Log($"[SetPowerMode-Diag] SUCCESS via WMI verified: mode=0x{mode:X2}");
@@ -683,22 +836,13 @@ namespace PreySense.Helpers
         {
             lock (_lock)
             {
-                if (_quietEcOverrideActive && IsKnownOperatingMode(_activeUserPowerMode))
+                if (_safeQuietIdleActive && IsKnownOperatingMode(_safeQuietIdleUserMode))
                 {
-                    mode = _activeUserPowerMode;
+                    mode = _safeQuietIdleUserMode;
                     return true;
                 }
             }
-            if (TryGetRawEcPowerProfileWmi(out mode))
-            {
-                lock (_lock)
-                {
-                    if (!_quietEcOverrideActive)
-                        _activeUserPowerMode = mode;
-                }
-                return true;
-            }
-            return false;
+            return TryGetRawEcPowerProfileWmi(out mode);
         }
 
         private static int RoundToNearest100(int value) => value < 0 ? -1 : (int)(Math.Round(value / 100.0) * 100);
