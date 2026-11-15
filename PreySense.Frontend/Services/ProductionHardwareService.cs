@@ -197,6 +197,11 @@ namespace PreySense.Frontend.Services
             return _wmi.SetFanControl(2, cpuPercentage, gpuPercentage);
         }
 
+        public bool SetFanSpeedsWithManualZero(byte cpuPercentage, byte gpuPercentage, bool cpuManualZero, bool gpuManualZero)
+        {
+            return _wmi.SetFanControl(2, cpuPercentage, gpuPercentage, cpuManualZero, gpuManualZero);
+        }
+
         public bool TrySetManualZeroFans() => _wmi.SetManualZeroFansWmi();
 
         public bool SetQuietIdleBase(bool enable, byte userPowerMode, byte quietBaseMode = 0x01) =>

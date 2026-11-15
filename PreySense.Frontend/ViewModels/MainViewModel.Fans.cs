@@ -23,6 +23,8 @@ public partial class MainViewModel
     private bool _quietIdleBaseEngaged;
     private byte _quietIdleBaseMode = 0x01;
     private bool _sentManualZero;
+    private bool _sentCpuManualZero;
+    private bool _sentGpuManualZero;
 
     internal int[]? FanWriteBackoffMs { get; set; }
     internal Action<int>? FanRetryWait { get; set; }
@@ -387,7 +389,24 @@ public partial class MainViewModel
                 quietIdleStateChanged = !_quietIdleBaseEngaged;
             }
 
-            bool wantManualZero = bothFansEcAuto && cal is { PreferManualZeroIdle: true };
+            bool canUseManualZero = _runningFanProfile.SafeQuietIdleBase
+                && _runningFanProfile.UseEcAutoBelowMin
+                && !_fanFollower.EmergencyActive
+                && cal is { PreferManualZeroIdle: true };
+            bool wantManualZero = bothFansEcAuto && canUseManualZero;
+            bool wantCpuManualZero = !wantManualZero
+                && canUseManualZero
+                && _fanFollower.LastCpuEcAuto
+                && cpu == 0
+                && gpu > 0
+                && telemetry.CpuTemp < 75;
+            bool wantGpuManualZero = !wantManualZero
+                && canUseManualZero
+                && _fanFollower.LastGpuEcAuto
+                && gpu == 0
+                && cpu > 0
+                && telemetry.CpuTemp < 75
+                && (gpuTemp <= 0 || gpuTemp < 55);
 
             bool forceWatchdogRewrite = EvaluateWatchdog(
                 nowUtc,
@@ -404,7 +423,9 @@ public partial class MainViewModel
                 && !quietIdleStateChanged
                 && _sentCpuFan == cpu
                 && _sentGpuFan == gpu
-                && _sentManualZero == wantManualZero)
+                && _sentManualZero == wantManualZero
+                && _sentCpuManualZero == wantCpuManualZero
+                && _sentGpuManualZero == wantGpuManualZero)
             {
                 LogDiagnosticSample(mode, _runningFanProfile.ControlMode, telemetry, cal);
                 return;
@@ -418,7 +439,9 @@ public partial class MainViewModel
                 _watchdogCpuDivergeStartUtc = null;
                 _watchdogGpuDivergeStartUtc = null;
             }
-            else if (_sentManualZero && !wantManualZero)
+            else if ((_sentManualZero && !wantManualZero)
+                || (_sentCpuManualZero && !wantCpuManualZero)
+                || (_sentGpuManualZero && !wantGpuManualZero))
             {
                 _hw.InvalidateFanTargets();
             }
@@ -426,7 +449,9 @@ public partial class MainViewModel
             _fanOverrideActive = true;
             if (ExecuteFanWriteWithRetry(() => wantManualZero
                 ? _hw.TrySetManualZeroFans()
-                : _hw.SetFanSpeeds((byte)cpu, (byte)gpu)))
+                : (wantCpuManualZero || wantGpuManualZero)
+                    ? _hw.SetFanSpeedsWithManualZero((byte)cpu, (byte)gpu, wantCpuManualZero, wantGpuManualZero)
+                    : _hw.SetFanSpeeds((byte)cpu, (byte)gpu)))
             {
                 if (_fanWriteInBackoff)
                     AppLogger.Log("[FanControl] Recovered Custom fan control after backoff.");
@@ -434,6 +459,8 @@ public partial class MainViewModel
                 _sentCpuFan = cpu;
                 _sentGpuFan = gpu;
                 _sentManualZero = wantManualZero;
+                _sentCpuManualZero = wantCpuManualZero;
+                _sentGpuManualZero = wantGpuManualZero;
                 _fanOverrideActive = true;
                 _autoFanModeApplied = _sentMaxFanMode = false;
             }

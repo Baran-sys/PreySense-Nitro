@@ -43,6 +43,8 @@ namespace PreySense.Core.Services
         // Fan Control
         bool SetFanMode(byte cpuMode, byte gpuMode);
         bool SetFanSpeeds(byte cpuPercentage, byte gpuPercentage);
+        bool SetFanSpeedsWithManualZero(byte cpuPercentage, byte gpuPercentage, bool cpuManualZero, bool gpuManualZero) =>
+            SetFanSpeeds(cpuPercentage, gpuPercentage);
         bool TrySetManualZeroFans() => false;
         bool SetQuietIdleBase(bool enable, byte userPowerMode, byte quietBaseMode = 0x01) => false;
         void InvalidateFanTargets() { }

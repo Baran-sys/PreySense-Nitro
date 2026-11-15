@@ -75,7 +75,20 @@ namespace PreySense.Core.Services
         public bool SetFanSpeeds(byte cpuPercentage, byte gpuPercentage)
         {
             ManualZeroFansActive = false;
+            LastCpuManualZero = false;
+            LastGpuManualZero = false;
             return true;
+        }
+
+        public bool LastCpuManualZero { get; private set; }
+        public bool LastGpuManualZero { get; private set; }
+
+        public bool SetFanSpeedsWithManualZero(byte cpuPercentage, byte gpuPercentage, bool cpuManualZero, bool gpuManualZero)
+        {
+            bool ok = ((IHardwareService)this).SetFanSpeeds(cpuPercentage, gpuPercentage);
+            LastCpuManualZero = cpuManualZero && cpuPercentage == 0;
+            LastGpuManualZero = gpuManualZero && gpuPercentage == 0;
+            return ok;
         }
 
         public int SetManualZeroFansCallCount { get; private set; }

@@ -429,14 +429,17 @@ public sealed class FanCurveFollower
         }
     }
 
+    public const int SafetyMinRpmFloor = 1600;
+
     public static int ResolveEffectiveMinRpm(int profileMinRpmFloor, SingleFanCalibration? fanCal)
     {
         if (fanCal is { IsCalibrated: true, MinStableRpm: > 0 })
         {
-            int upper = Math.Max(fanCal.MinStableRpm, 3000);
-            return Math.Clamp(profileMinRpmFloor, fanCal.MinStableRpm, upper);
+            int minRpm = Math.Max(fanCal.MinStableRpm, SafetyMinRpmFloor);
+            int upper = Math.Max(minRpm, 3000);
+            return Math.Clamp(profileMinRpmFloor, minRpm, upper);
         }
-        return Math.Max(profileMinRpmFloor, FanStage.MinManualRpmFloor);
+        return Math.Max(Math.Max(profileMinRpmFloor, FanStage.MinManualRpmFloor), SafetyMinRpmFloor);
     }
 
     /// <summary>
@@ -568,7 +571,7 @@ public sealed class FanCurveFollower
             rawCpuRpm = Math.Max(rawCpuRpm, minCpuRpmFloorOverride);
         bool cpuRawCurveZero = EvaluateCurveRpm(cpuTemp, cpuPoints) <= 0.0;
 
-        bool gpuSharedHeatsinkHot = gpuTemp <= 0 && _heldCpuTemp >= 85.0;
+        bool gpuSharedHeatsinkHot = gpuTemp <= 0 && _heldCpuTemp >= 75.0;
         int? gpuFirstNonZeroTemp = FirstNonZeroPointTemp(gpuPoints);
         int effectiveRawGpuTemp = gpuTemp > 0 ? gpuTemp : (gpuSharedHeatsinkHot ? cpuTemp : 0);
         bool gpuImmediateAutoExit = _gpuLoop.WasEcAuto

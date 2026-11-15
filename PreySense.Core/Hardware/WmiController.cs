@@ -39,6 +39,8 @@ namespace PreySense.Helpers
         private int _lastSetGpuSpeed = -1;
         private bool _fanTargetsInvalidated = false;
         private bool _lastSetManualZero = false;
+        private bool _lastSetCpuManualZero = false;
+        private bool _lastSetGpuManualZero = false;
         private bool _safeQuietIdleActive = false;
         internal Func<string, ulong, (bool success, ulong output)>? CommandOverride { get; set; }
         private byte _safeQuietIdleUserMode = 0x01;
@@ -1084,9 +1086,9 @@ namespace PreySense.Helpers
 
         #region Direct Hardware & WMI First Control
 
-        public bool SetFanControl(int mode, int cpuSpeed = 50, int gpuSpeed = 50)
+        public bool SetFanControl(int mode, int cpuSpeed = 50, int gpuSpeed = 50, bool cpuManualZero = false, bool gpuManualZero = false)
         {
-            return SetFanControlWmi(mode, cpuSpeed, gpuSpeed);
+            return SetFanControlWmi(mode, cpuSpeed, gpuSpeed, cpuManualZero, gpuManualZero);
         }
 
         public const int GpuMuxOptimus = 0;

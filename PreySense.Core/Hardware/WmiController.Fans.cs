@@ -42,13 +42,19 @@ public partial class WmiController
         return SendCommand(AcerWmi.GamingMethods.SetFanSpeed, payload).success;
     }
 
-    public bool SetFanControlWmi(int mode, int cpuSpeed = 50, int gpuSpeed = 50)
+    public bool SetFanControlWmi(int mode, int cpuSpeed = 50, int gpuSpeed = 50, bool cpuManualZero = false, bool gpuManualZero = false)
     {
         lock (_lock)
         {
             cpuSpeed = EcFanPolicy.ClampDuty(cpuSpeed);
             gpuSpeed = EcFanPolicy.ClampDuty(gpuSpeed);
-            bool force = _fanTargetsInvalidated || _lastSetManualZero || mode != _lastSetFanMode;
+            bool effectiveCpuManualZero = mode == 2 && cpuManualZero && cpuSpeed <= 0;
+            bool effectiveGpuManualZero = mode == 2 && gpuManualZero && gpuSpeed <= 0;
+            bool force = _fanTargetsInvalidated
+                || _lastSetManualZero
+                || mode != _lastSetFanMode
+                || effectiveCpuManualZero != _lastSetCpuManualZero
+                || effectiveGpuManualZero != _lastSetGpuManualZero;
             if (!force && (mode != 2 || (cpuSpeed == _lastSetCpuSpeed && gpuSpeed == _lastSetGpuSpeed)))
                 return true;
 
@@ -60,14 +66,14 @@ public partial class WmiController
 
             if (mode == 2)
             {
-                bool cpuAuto = cpuSpeed <= 0;
-                bool gpuAuto = gpuSpeed <= 0;
+                bool cpuAuto = cpuSpeed <= 0 && !effectiveCpuManualZero;
+                bool gpuAuto = gpuSpeed <= 0 && !effectiveGpuManualZero;
                 ulong targetMask = (cpuAuto && gpuAuto) ? 0x410009ul :
                                    (!cpuAuto && gpuAuto) ? 0x430009ul :
                                    (cpuAuto && !gpuAuto) ? 0xC10009ul : 0xC30009ul;
 
-                bool prevCpuAuto = _lastSetCpuSpeed <= 0;
-                bool prevGpuAuto = _lastSetGpuSpeed <= 0;
+                bool prevCpuAuto = _lastSetCpuSpeed <= 0 && !_lastSetCpuManualZero;
+                bool prevGpuAuto = _lastSetGpuSpeed <= 0 && !_lastSetGpuManualZero;
                 ulong prevMask = _lastSetManualZero ? 0xC30009ul :
                                  (prevCpuAuto && prevGpuAuto) ? 0x410009ul :
                                  (!prevCpuAuto && prevGpuAuto) ? 0x430009ul :
@@ -78,9 +84,11 @@ public partial class WmiController
                     if (!SetFanBehaviorMask(targetMask)) return false;
                     force = true;
                 }
-                if (!cpuAuto && (force || cpuSpeed != _lastSetCpuSpeed) && !SetCpuFanSpeed(cpuSpeed))
+                int targetCpuDuty = effectiveCpuManualZero ? 0 : cpuSpeed;
+                int targetGpuDuty = effectiveGpuManualZero ? 0 : gpuSpeed;
+                if (!cpuAuto && (force || targetCpuDuty != _lastSetCpuSpeed) && !SetCpuFanSpeed(targetCpuDuty))
                     return false;
-                if (!gpuAuto && (force || gpuSpeed != _lastSetGpuSpeed) && !SetGpuFanSpeed(gpuSpeed))
+                if (!gpuAuto && (force || targetGpuDuty != _lastSetGpuSpeed) && !SetGpuFanSpeed(targetGpuDuty))
                     return false;
             }
             else
@@ -92,6 +100,8 @@ public partial class WmiController
             _lastSetCpuSpeed = cpuSpeed;
             _lastSetGpuSpeed = gpuSpeed;
             _lastSetManualZero = false;
+            _lastSetCpuManualZero = effectiveCpuManualZero;
+            _lastSetGpuManualZero = effectiveGpuManualZero;
             _fanTargetsInvalidated = false;
             return true;
         }
@@ -119,6 +129,8 @@ public partial class WmiController
             _lastSetFanMode = 2;
             _lastSetCpuSpeed = 0;
             _lastSetGpuSpeed = 0;
+            _lastSetCpuManualZero = true;
+            _lastSetGpuManualZero = true;
             _fanTargetsInvalidated = false;
             return true;
         }
