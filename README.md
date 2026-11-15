@@ -34,10 +34,15 @@ Verified across Acer Predator Helios (PH16, PH18, PHN16, PHN16S) and Acer Nitro 
   - **Auto (Dynamic Display Switch / DDS)**: Intelligently switches the display between integrated and discrete GPUs based on active 3D workloads without rebooting.
   - **Hybrid (Optimus)**: Desktop and everyday applications run on the power-efficient integrated GPU, waking the discrete NVIDIA GPU only for heavy 3D rendering.
   - **Advanced Optimus**: Direct display connection to the discrete NVIDIA GPU on the fly without system restart for ultra-low latency and peak frame rates.
-  - **dGPU Only**: Hardware BIOS MUX switch exclusively directing the internal display to the NVIDIA discrete GPU (requires system restart).
+  - **dGPU Only**: Hardware BIOS MUX switch exclusively directing the internal display to the NVIDIA discrete GPU (requires system restart). Protected by an automatic hardware/driver capability guard so unsupported laptops cannot trigger a black-screen boot state.
   - **iGPU Only**: Completely disables the discrete GPU in Windows to maximize battery life on the go.
+- **Lazy NVAPI GPU Clock & Memory Offset Tuning**: Applies GPU core/VRAM clock offsets and frequency ceilings on demand without waking the discrete GPU from D3cold sleep when opening settings or switching modes; pending offsets flush automatically as soon as an active 3D workload wakes the GPU.
 - **Universal GPU Frequency Ceiling & Wattage Lock**: Locks maximum GPU boost clocks via NVIDIA NVML APIs to cap peak power consumption on laptops lacking OEM platform power registers.
 - **Platform Power Limit Tuning (ERM4)**: Direct PL1/PL2 and cross-load power adjustments on supported Predator laptops.
+
+### Game Mode & Per-Game Tuning Profiles
+- **Automatic Game Launch Detection**: Monitors running game processes (`GameLaunchWatcher`) and automatically applies per-game performance modes, CPU boost policies, GPU clock targets, fan curves, and keyboard lighting profiles.
+- **Automatic Session Restore**: Restores your baseline desktop power, thermal, and lighting configuration cleanly when a game exits.
 
 ### Smart Boost Dynamic Throttle Prevention
 - Real-time thermal surveillance engine monitoring CPU core temperatures at 1 Hz.
@@ -55,8 +60,8 @@ Verified across Acer Predator Helios (PH16, PH18, PHN16, PHN16S) and Acer Nitro 
 - **USB Power-Off Charging**: Configure power delivery to external devices via USB ports while the laptop is powered down.
 
 ### Liquid Glass Aesthetic & Native Windows 11 Integration
-- **Live Windows 11 Acrylic Blur**: Real-time DWM Acrylic blur backdrop powered by `SetWindowCompositionAttribute` (`WCA_ACCENT_POLICY`), matching the soft, luminous translucency of the Windows 11 Start Menu.
-- **Frosted Translucent Glass UI**: Delicate frosted glass buttons and panels with subtle specular highlights, allowing radiant background diffusion without dark muddying.
+- **Live Windows 11 Acrylic Blur**: Real-time DWM Acrylic blur backdrop powered by `SetWindowCompositionAttribute` (`WCA_ACCENT_POLICY` with `ACCENT_ENABLE_ACRYLICBLURBEHIND` and `DwmExtendFrameIntoClientArea`), keeping deep obsidian translucent blur active even when unfocused without washing out to flat gray.
+- **Smoked Translucent Glass UI**: Translucent glass cards, popups, and buttons with subtle specular highlights that let background blur shine through cleanly.
 - **Native DWM Drop Shadow & Rounded Corners**: Borderless window styling with native Windows 11 corner rounding and drop shadows without native title bar button artifacts.
 - **Native Window Transitions**: Preserves smooth Windows open, minimize, and restore animations.
 - **Dark & Light Obsidian Themes**: High-contrast typography and color schemes tailored for both dark and light desktop environments.
@@ -87,8 +92,8 @@ Verified across Acer Predator Helios (PH16, PH18, PHN16, PHN16S) and Acer Nitro 
 <p align="center">
   <img src="pics/Lighting.png" alt="PreySense RGB Keyboard Lighting" width="450">
 </p>
-- Multi-zone RGB keyboard customization with static colors, breathing, wave, and neon effects.
-- Lid logo and chassis light bar controls on supported Predator models.
+- Multi-zone RGB keyboard customization across Acer EC, HID, and OEM USB lighting transports with static colors, breathing, wave, zoom, and neon effects.
+- Per-mode keyboard color profiles, lighting direction controls, dynamic bar sync, and lid logo / chassis light bar controls on supported Predator models.
 
 ---
 
@@ -99,7 +104,7 @@ PreySense is built on .NET 10 and C# 13, structured into clean, decoupled module
 - **PreySense.Core**: Hardware abstraction layer, Acer WMI EC communications, NVML/NVAPI GPU controls, native Windows power telemetry, Smart Boost engine, bi-directional fan calibration, and monotone cubic mathematical solvers.
 - **PreySense.Frontend**: Modern WPF interface featuring CommunityToolkit MVVM, real-time Acrylic/Mica backdrops, reactive data bindings, full multi-language localization, and interactive tooltips.
 - **PreySense.Overlay**: Direct3D/DWM hardware overlay renderer for full-screen and borderless games.
-- **PreySense.Tests**: Comprehensive unit test suite with 542 automated tests verifying mathematical solvers, config serialization, WMI schemas, localization dictionaries, and hardware safety bounds.
+- **PreySense.Tests**: Comprehensive unit test suite with 739 automated tests verifying mathematical solvers, config serialization, WMI/EC/HID/USB lighting schemas, localization dictionaries, and hardware safety bounds.
 
 ---
 
