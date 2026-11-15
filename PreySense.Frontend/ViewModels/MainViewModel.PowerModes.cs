@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PreySense.Core.Driver;
+using PreySense.Core.Hardware;
 using PreySense.Core.Services;
 using PreySense.Frontend.Views;
 using PreySense.Mode;
@@ -14,11 +15,25 @@ namespace PreySense.Frontend.ViewModels
     {
         private readonly Services.LatestBackgroundWorker<bool> _energySaverWorker =
             new(PowerLimitController.SetEnergySaverOnBattery, (_, latest) => latest);
-        private const int ModeSwitchDebounceMilliseconds = 1000;
+        private readonly object _modeSwitchLock = new();
         private readonly object _modeSwitchDebounceLock = new();
+        private object ModeSwitchSync => _modeSwitchLock ?? _modeSwitchDebounceLock;
         private readonly SemaphoreSlim _modeSwitchGate = new(1, 1);
-        private CancellationTokenSource? _modeSwitchDebounceCts;
+        private CancellationTokenSource? _modeSwitchTrailingCts;
         private byte _pendingHardwareMode = 0xFF;
+        private byte _lastAppliedHardwareMode = 0xFF;
+        private bool _modeSwitchCooldownActive;
+        internal Action<byte, string>? ModeToastPresenter { get; set; }
+
+        internal void NotifyConfirmedPowerMode(byte mode)
+        {
+            ActivePowerMode = mode;
+            UpdateModeName(mode);
+            NotifyModeSelectionsChanged();
+            ScheduleHotkeyLightingRestoreAfterModeSwitch();
+            if (ModeToastPresenter is { } presenter) presenter(mode, GetModeTitle(mode));
+            else ModeToastWindow.ShowConfirmedMode(mode, GetModeTitle(mode));
+        }
 
         // Power Profiles (0=Quiet, 1=Balanced, 4=Performance, 5=Turbo, 6=Eco)
         [ObservableProperty] private byte _activePowerMode = 0x01; // Balanced
@@ -67,60 +82,136 @@ namespace PreySense.Frontend.ViewModels
             NotifyModeSelectionsChanged();
             DiagnosticMessage = $"Switching to {GetModeTitle(mode)}...";
 
-            CancellationToken debounceToken;
-            lock (_modeSwitchDebounceLock)
+            bool applyNow;
+            lock (ModeSwitchSync)
             {
                 _pendingHardwareMode = mode;
-                _modeSwitchDebounceCts?.Cancel();
-                _modeSwitchDebounceCts?.Dispose();
-                _modeSwitchDebounceCts = new CancellationTokenSource();
-                debounceToken = _modeSwitchDebounceCts.Token;
+                applyNow = !_modeSwitchCooldownActive;
+                if (applyNow)
+                    _modeSwitchCooldownActive = true;
             }
 
-            try
-            {
-                await Task.Delay(ModeSwitchDebounceMilliseconds, debounceToken);
-            }
-            catch (OperationCanceledException)
-            {
+            if (!applyNow)
                 return;
-            }
 
-            await _modeSwitchGate.WaitAsync();
+            // Fixed mode-transition window from the first click; later clicks only update pending.
+            ScheduleTrailingModeApply();
+
+            if (!await TryEnterModeSwitchGateAsync()) return;
             try
             {
-                if (debounceToken.IsCancellationRequested) return;
                 byte toApply;
-                lock (_modeSwitchDebounceLock)
+                lock (ModeSwitchSync)
                     toApply = _pendingHardwareMode;
-                if (toApply == 0xFF)
-                    return;
-                await ApplyModeSwitchCoreAsync(toApply);
-                lock (_modeSwitchDebounceLock)
+                if (toApply == 0xFF) return;
+                bool applied = await ApplyModeSwitchCoreAsync(toApply);
+                lock (ModeSwitchSync)
                 {
+                    if (applied)
+                        _lastAppliedHardwareMode = toApply;
                     if (_pendingHardwareMode == toApply)
-                    {
                         _pendingHardwareMode = 0xFF;
-                        _modeSwitchDebounceCts?.Dispose();
-                        _modeSwitchDebounceCts = null;
-                    }
                 }
             }
             finally
             {
-                _modeSwitchGate.Release();
+                ExitModeSwitchGate();
             }
+        }
+
+        /// <summary>
+        /// First click applies immediately. Further clicks only update the pending mode;
+        /// after the EC settle window the last pending mode is applied once (timer does not reset).
+        /// </summary>
+        private void ScheduleTrailingModeApply()
+        {
+            CancellationToken token;
+            lock (ModeSwitchSync)
+            {
+                if (_modeSwitchTrailingCts != null)
+                    return;
+                _modeSwitchTrailingCts = new CancellationTokenSource();
+                token = _modeSwitchTrailingCts.Token;
+            }
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(AcerOperatingModeTiming.TransitionDelay, token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+
+                if (!await TryEnterModeSwitchGateAsync()) return;
+                try
+                {
+                    if (token.IsCancellationRequested || _disposed) return;
+
+                    CancellationTokenSource? spent;
+                    lock (ModeSwitchSync)
+                    {
+                        spent = _modeSwitchTrailingCts;
+                        _modeSwitchTrailingCts = null;
+                    }
+                    spent?.Dispose();
+
+                    byte toApply;
+                    lock (ModeSwitchSync)
+                        toApply = _pendingHardwareMode;
+                    if (toApply == 0xFF)
+                    {
+                        lock (ModeSwitchSync)
+                            _modeSwitchCooldownActive = false;
+                        return;
+                    }
+
+                    bool alreadyApplied;
+                    lock (ModeSwitchSync)
+                        alreadyApplied = toApply == _lastAppliedHardwareMode;
+                    bool applied = alreadyApplied || await ApplyModeSwitchCoreAsync(toApply);
+
+                    bool morePending;
+                    lock (ModeSwitchSync)
+                    {
+                        if (applied)
+                            _lastAppliedHardwareMode = toApply;
+                        if (_pendingHardwareMode == toApply)
+                        {
+                            _pendingHardwareMode = 0xFF;
+                            // A queued switch starts its own cooldown, even if no new click is waiting yet.
+                            _modeSwitchCooldownActive = applied;
+                            morePending = applied;
+                        }
+                        else
+                        {
+                            // Another mode was chosen while applying; keep cooldown and wait again.
+                            _modeSwitchCooldownActive = true;
+                            morePending = true;
+                        }
+                    }
+
+                    if (morePending)
+                        ScheduleTrailingModeApply();
+                }
+                finally
+                {
+                    ExitModeSwitchGate();
+                }
+            });
         }
 
         internal bool IsModeSelectionPending()
         {
-            lock (_modeSwitchDebounceLock)
-                return _pendingHardwareMode != 0xFF;
+            lock (ModeSwitchSync)
+                return _pendingHardwareMode != 0xFF || _modeSwitchCooldownActive;
         }
 
         internal byte PeekPendingOrActiveMode()
         {
-            lock (_modeSwitchDebounceLock)
+            lock (ModeSwitchSync)
                 return _pendingHardwareMode != 0xFF ? _pendingHardwareMode : ActivePowerMode;
         }
 
@@ -141,25 +232,79 @@ namespace PreySense.Frontend.ViewModels
         internal async Task ApplyModeSwitchAsync(byte mode, bool applyCustomLimits = true)
         {
             CancelPendingModeSwitch();
-            await _modeSwitchGate.WaitAsync();
-            try { await ApplyModeSwitchCoreAsync(mode, applyCustomLimits); }
-            finally { _modeSwitchGate.Release(); }
+            if (!await TryEnterModeSwitchGateAsync()) return;
+            try
+            {
+                bool applied = await ApplyModeSwitchCoreAsync(mode, applyCustomLimits);
+                lock (ModeSwitchSync)
+                {
+                    if (applied)
+                        _lastAppliedHardwareMode = mode;
+                    _pendingHardwareMode = 0xFF;
+                    _modeSwitchCooldownActive = false;
+                }
+            }
+            finally { ExitModeSwitchGate(); }
         }
 
         private void CancelPendingModeSwitch()
         {
-            lock (_modeSwitchDebounceLock)
+            lock (ModeSwitchSync)
             {
-                _modeSwitchDebounceCts?.Cancel();
-                _modeSwitchDebounceCts?.Dispose();
-                _modeSwitchDebounceCts = null;
+                _modeSwitchTrailingCts?.Cancel();
+                _modeSwitchTrailingCts?.Dispose();
+                _modeSwitchTrailingCts = null;
                 _pendingHardwareMode = 0xFF;
+                _modeSwitchCooldownActive = false;
             }
         }
 
-        private async Task ApplyModeSwitchCoreAsync(byte mode, bool applyCustomLimits = true)
+        private async Task<bool> TryEnterModeSwitchGateAsync()
         {
-            if (!ProfileManager.IsSupportedMode(mode)) return;
+            if (_disposed) return false;
+            try
+            {
+                await _modeSwitchGate.WaitAsync().ConfigureAwait(true);
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
+
+            if (_disposed)
+            {
+                ExitModeSwitchGate();
+                return false;
+            }
+
+            return true;
+        }
+
+        private void ExitModeSwitchGate()
+        {
+            try { _modeSwitchGate.Release(); }
+            catch (ObjectDisposedException) { }
+            catch (SemaphoreFullException) { }
+        }
+
+        private void DrainAndDisposeModeSwitchGate()
+        {
+            CancelPendingModeSwitch();
+            try
+            {
+                if (_modeSwitchGate.Wait(TimeSpan.FromSeconds(3)))
+                    _modeSwitchGate.Release();
+            }
+            catch (ObjectDisposedException) { }
+            catch (SemaphoreFullException) { }
+
+            try { _modeSwitchGate.Dispose(); }
+            catch (ObjectDisposedException) { }
+        }
+
+        private async Task<bool> ApplyModeSwitchCoreAsync(byte mode, bool applyCustomLimits = true)
+        {
+            if (!ProfileManager.IsSupportedMode(mode)) return false;
             if (applyCustomLimits && IsHardwareTuningEnabled)
             {
                 IsBusy = true;
@@ -172,26 +317,45 @@ namespace PreySense.Frontend.ViewModels
                 catch (Exception ex)
                 {
                     DiagnosticMessage = $"Could not apply automatic tuning: {ex.Message}";
-                    var actual = await Task.Run(() => _hw.TryGetPowerMode(out byte current) ? (byte?)current : null);
-                    if (actual.HasValue) ActivePowerMode = actual.Value;
-                    UpdateModeName(ActivePowerMode);
-                    NotifyModeSelectionsChanged();
-                    return;
+                    await RefreshModeAfterFailedSwitchAsync();
+                    return false;
                 }
                 finally { IsBusy = false; }
             }
             else
             {
-                bool changed = await Task.Run(() => _hw.SetPowerMode(mode));
-                if (!changed) { DiagnosticMessage = "Could not switch Acer mode."; return; }
+                bool changed;
+                try { changed = await Task.Run(() => _hw.SetPowerMode(mode)); }
+                catch (Exception ex)
+                {
+                    AppLogger.Error($"Acer mode switch failed: {ex}");
+                    DiagnosticMessage = $"Could not switch Acer mode: {ex.Message}";
+                    await RefreshModeAfterFailedSwitchAsync();
+                    return false;
+                }
+                if (!changed)
+                {
+                    DiagnosticMessage = "Could not switch Acer mode.";
+                    await RefreshModeAfterFailedSwitchAsync();
+                    return false;
+                }
             }
-            ActivePowerMode = mode;
+            NotifyConfirmedPowerMode(mode);
             if (!await ApplyCpuBoostForModeAsync(mode))
                 DiagnosticMessage = "Mode selected, but CPU boost failed.";
-            UpdateModeName(mode);
-            await Task.Run(RestoreFanMode);
-            NotifyModeSelectionsChanged();
+            await Task.Run(RestoreFanMode).ConfigureAwait(true);
             PersistSessionSettings();
+            return true;
+        }
+
+        private async Task RefreshModeAfterFailedSwitchAsync()
+        {
+            byte? actual = null;
+            try { actual = await Task.Run(() => _hw.TryGetPowerMode(out byte current) ? (byte?)current : null); }
+            catch (Exception ex) { AppLogger.Error($"Could not read Acer mode after failed switch: {ex}"); }
+            ActivePowerMode = actual ?? 0xFF;
+            UpdateModeName(ActivePowerMode);
+            NotifyModeSelectionsChanged();
         }
 
         internal void ApplyPowerProfileForSource(PowerSourceKind source)
@@ -323,13 +487,13 @@ namespace PreySense.Frontend.ViewModels
                 });
             }
             catch { }
-            await _modeSwitchGate.WaitAsync();
+            if (!await TryEnterModeSwitchGateAsync()) return;
             try
             {
                 if (!_disposed && ActivePowerMode == mode)
                     await ApplyCpuBoostForModeAsync(mode);
             }
-            finally { _modeSwitchGate.Release(); }
+            finally { ExitModeSwitchGate(); }
         }
 
         internal static string GetCpuBoostModeName(int boostMode) =>

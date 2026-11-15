@@ -140,10 +140,10 @@ public class LatestBackgroundWorkerTests
         var worker = CreateLightingWorker(vm.ApplyLightingRequest);
         var keyboard = new KeyboardLightingConfig
         {
-            Brightness = 50, BacklightTimeoutSeconds = 60,
+            EffectTag = "HW:0", Brightness = 50, BacklightTimeoutSeconds = 60,
             Zone1ColorHex = "#112233", Zone2ColorHex = "#224466", Zone3ColorHex = "#336699", Zone4ColorHex = "#4488CC"
         };
-        var cover = new CoverLightingConfig { ColorHex = "#445566", Brightness = 25 };
+        var cover = new CoverLightingConfig { Mode = 1, ColorHex = "#445566", Brightness = 25 };
         try
         {
             // Keep this caller occupied, so a reused thread-pool continuation cannot
@@ -171,8 +171,8 @@ public class LatestBackgroundWorkerTests
         var worker = CreateLightingWorker(CreateLightingViewModel(hardware).ApplyLightingRequest);
         try
         {
-            await worker.Submit(new(new() { Brightness = 75 },
-                new() { SyncWithKeyboard = true, ColorHex = "#445566", Brightness = 25 }, MainViewModel.LightingWork.Brightness))
+            await worker.Submit(new(new() { EffectTag = "HW:0", Brightness = 75 },
+                new() { Mode = 1, SyncWithKeyboard = true, ColorHex = "#445566", Brightness = 25 }, MainViewModel.LightingWork.Brightness))
                 .WaitAsync(TimeSpan.FromSeconds(5));
             var calls = recorder.Calls.ToArray();
             Assert.HasCount(1, calls);

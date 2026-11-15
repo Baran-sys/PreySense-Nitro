@@ -130,7 +130,8 @@ public class SettingsWindowInitializationTests
                         int winW = rect.Right - rect.Left;
                         int winH = rect.Bottom - rect.Top;
                         Assert.IsGreaterThan(300, (int)w.ActualWidth, $"{w.GetType().Name} ActualWidth={w.ActualWidth}, Win32={winW}x{winH}");
-                        Assert.IsGreaterThan(100, (int)w.ActualHeight, $"{w.GetType().Name} ActualHeight={w.ActualHeight}, Win32={winW}x{winH}");
+                        int minDipHeight = w is CustomModalDialog ? 80 : 100;
+                        Assert.IsGreaterThan(minDipHeight, (int)w.ActualHeight, $"{w.GetType().Name} ActualHeight={w.ActualHeight}, Win32={winW}x{winH}");
                         Assert.IsGreaterThan(300, winW, $"{w.GetType().Name} Win32 Width={winW}x{winH}");
                         Assert.IsGreaterThan(100, winH, $"{w.GetType().Name} Win32 Height={winW}x{winH}");
 

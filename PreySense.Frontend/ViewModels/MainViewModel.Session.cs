@@ -124,6 +124,7 @@ namespace PreySense.Frontend.ViewModels
             _ = ApplyStartupLightingAsync();
             if (_disposed) return;
             await RestoreSessionSettingsAsync("startup");
+            await _dispatcher.InvokeAsync(InitializeGameMode);
             if (_disposed)
                 return;
             int batteryLimit = IsBatteryLimitEnabled ? 1 : 0;
@@ -155,9 +156,8 @@ namespace PreySense.Frontend.ViewModels
             bool gateHeld = false;
             try
             {
-                await _modeSwitchGate.WaitAsync();
+                if (!await TryEnterModeSwitchGateAsync()) return;
                 gateHeld = true;
-                if (_disposed) return;
                 _isRestoringSession = true;
                 AppLogger.Log($"Restoring PreySense session settings ({reason}).");
                 byte mode = ActivePowerMode;
@@ -204,6 +204,7 @@ namespace PreySense.Frontend.ViewModels
                     UpdateModeName(mode);
                     NotifyModeSelectionsChanged();
                     if (source == PowerSourceKind.Unknown) { DiagnosticMessage = restoreWarning; return; }
+                    ScheduleHotkeyLightingRestoreAfterModeSwitch();
                     bool onAc = source == PowerSourceKind.Ac;
                     _lastAcState = onAc;
                     ApplyAutoRefreshForPower(onAc);
@@ -227,8 +228,7 @@ namespace PreySense.Frontend.ViewModels
                 if (gateHeld)
                 {
                     _isRestoringSession = false;
-                    try { _modeSwitchGate.Release(); }
-                    catch (ObjectDisposedException) { }
+                    ExitModeSwitchGate();
                 }
             }
         }

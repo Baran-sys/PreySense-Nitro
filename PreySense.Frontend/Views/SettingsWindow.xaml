@@ -67,6 +67,12 @@
                                                       ToolTip="Enable Windows Acrylic translucent blur backdrop across PreySense windows."
                                                       IsChecked="{Binding IsGlassEffectEnabled, Mode=TwoWay}"/>
 
+                            <controls:SettingActionRow x:Name="RowLightingModeSettings"
+                                                       Title="Lighting Settings"
+                                                       ActionText="Open"
+                                                       ToolTip="Configure mode-based lighting colors for keyboard and connected devices."
+                                                       Click="BtnOpenLightingModeSettings_Click"/>
+
                             <controls:SettingSwitchRow Title="Fan Diagnostic Log"
                                                       ToolTip="Record detailed fan RPM, duty cycle, and temperature samples to fanlog.csv for troubleshooting."
                                                       IsChecked="{Binding IsFanDiagnosticsLogEnabled, Mode=TwoWay}"/>

@@ -49,5 +49,15 @@ namespace PreySense.Frontend.Views
             }
         }
 
+        private void BtnOpenLightingModeSettings_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new LightingSettingsWindow
+            {
+                Owner = this,
+                DataContext = DataContext
+            };
+            dialog.ShowDialog();
+        }
+
     }
 }

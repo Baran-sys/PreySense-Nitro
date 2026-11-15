@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Win32;
 using PreySense.Core.Driver;
+using PreySense.Core.Hardware;
 using PreySense.Core.Services;
 using PreySense;
 using PreySense.Frontend.Services;
@@ -22,7 +23,6 @@ namespace PreySense.Frontend.ViewModels
         private readonly TurboKeyWatcher _turboKeyWatcher;
         private readonly HidModeKeyWatcher _hidModeKeyWatcher;
         private DateTime _lastPhysicalModeKeyUtc;
-        private int _pendingBrightnessDelta;
         private int _powerSourceUpdateQueued;
         private bool _disposed;
 
@@ -149,8 +149,7 @@ namespace PreySense.Frontend.ViewModels
         public MainViewModel(IHardwareService hw)
         {
             _hw = hw;
-            _lightingWorker = new(ApplyLightingRequest,
-                (pending, latest) => latest with { Work = pending.Work | latest.Work });
+            _lightingWorker = new(ApplyLightingRequest, MergeLightingRequests);
             _isLightTheme = ThemeManager.LoadAndApply();
             _isGlassEffectEnabled = ThemeManager.IsGlassEffectEnabled;
             AttachSessionLifecycleHooks();
@@ -165,8 +164,9 @@ namespace PreySense.Frontend.ViewModels
             {
                 _turboKeyWatcher.Start();
             }
-            _hidModeKeyWatcher = new HidModeKeyWatcher(HandleModeKeyPressed, StepKeyboardBrightness);
-            _turboKeyWatcher.BrightnessKeyPressed += OnBrightnessKeyPressed;
+            // Firmware changes illumination; mirror Fn steps into the editor and saved profile.
+            _hidModeKeyWatcher = new HidModeKeyWatcher(HandleModeKeyPressed,
+                delta => HandleFnBrightness(delta, "HID"));
 
             UpdateFanDemand();
 
@@ -338,36 +338,35 @@ namespace PreySense.Frontend.ViewModels
 
         private void OnPowerModeChanged(object? sender, byte mode)
         {
-            App.Current?.Dispatcher?.InvokeAsync(async () =>
+            App.Current?.Dispatcher?.InvokeAsync(async () => await ReconcilePowerModeChangeAsync(mode));
+        }
+
+        private bool ShouldIgnorePowerModeChange(byte mode) =>
+            _disposed || IsBusy || _isRestoringSession || _modeSwitchGate.CurrentCount == 0
+            || IsModeSelectionPending()
+            || (DateTime.UtcNow - _lastPhysicalModeKeyUtc).TotalMilliseconds < AcerOperatingModeTiming.TransitionMilliseconds
+            || ActivePowerMode == mode;
+
+        internal async Task ReconcilePowerModeChangeAsync(byte mode)
+        {
+            // Ignore local-switch echoes before scheduling another native ACPI read.
+            if (ShouldIgnorePowerModeChange(mode)) return;
+            bool confirmed = await Task.Run(() => _hw.TryGetPowerMode(out byte actual) && actual == mode);
+            // A local selection or shutdown can happen while native readback is in flight.
+            if (!confirmed || ShouldIgnorePowerModeChange(mode)) return;
+            if (IsHardwareTuningEnabled)
             {
-                if (_disposed) return;
-                if (IsBusy || _isRestoringSession || _modeSwitchGate.CurrentCount == 0) return;
-                bool confirmed = await Task.Run(() => _hw.TryGetPowerMode(out byte actual) && actual == mode);
-                if (!confirmed || _disposed || IsBusy || _isRestoringSession || _modeSwitchGate.CurrentCount == 0) return;
-                // PreySense owns the chassis Mode / Turbo key. Ignore OEM firmware
-                // echoes while a local cycle is pending or just queued.
-                if (IsModeSelectionPending()
-                    || (DateTime.UtcNow - _lastPhysicalModeKeyUtc).TotalMilliseconds < 1500
-                    || ActivePowerMode == mode)
-                    return;
-                _ = Task.Run(RestoreFanMode);
-                if (IsHardwareTuningEnabled)
-                {
-                    await ApplyModeSwitchAsync(mode);
-                    return;
-                }
-                ActivePowerMode = mode;
-                await ApplyCpuBoostForModeAsync(mode);
-                UpdateModeName(mode);
-                NotifyModeSelectionsChanged();
-                PersistSessionSettings();
-                Views.ModeToastWindow.ShowConfirmedMode(mode, GetModeTitle(mode));
-            });
+                // ApplyModeSwitchCoreAsync already calls RestoreFanMode after the switch.
+                await ApplyModeSwitchAsync(mode);
+                return;
+            }
+            NotifyConfirmedPowerMode(mode);
+            await ApplyCpuBoostForModeAsync(mode);
+            await Task.Run(RestoreFanMode);
+            PersistSessionSettings();
         }
 
         private void OnTurboKeyPressed(object? sender, HotKeyEventArgs e) => HandleModeKeyPressed();
-
-        private void OnBrightnessKeyPressed(object? sender, int delta) => StepKeyboardBrightness(delta);
 
         public void HandleModeKeyPressed()
         {
@@ -387,13 +386,17 @@ namespace PreySense.Frontend.ViewModels
         public void Dispose()
         {
             if (_disposed) return;
+            StopGameMode();
+            PersistSessionSettings(includeLighting: false);
             SetMainWindowTelemetryVisible(false);
-            // Capture the last edit, including changes still inside the debounce window.
+            // Capture the last edit, including a mode still waiting on the trailing apply.
             // Only explicit shutdown waits: the worker never awaits the dispatcher.
             _lightingDebouncer.Cancel();
             _ = QueueLighting(LightingWork.Save);
             _lightingWorker.StopAsync(drainPending: true).GetAwaiter().GetResult();
+            StopExtendedLightingAsync().GetAwaiter().GetResult();
             _disposed = true;
+            DrainAndDisposeModeSwitchGate();
             _applicationReady.TrySetResult();
             TelemetryCoordinator.SnapshotAvailable -= OnSmartBoostTelemetry;
             TelemetryCoordinator.SetDemand(TelemetryDemand.SmartBoost, false);
@@ -401,24 +404,20 @@ namespace PreySense.Frontend.ViewModels
             DisposeFanTelemetry();
             ReleaseCustomFans();
             PreySense.Core.Hardware.CpuDriverRuntime.Dispose();
-            PersistSessionSettings();
             DetachSessionLifecycleHooks();
             _hw.PowerModeChanged -= OnPowerModeChanged;
             SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
             DisposeDisplaySettingsWatcher();
             _turboKeyWatcher.TurboKeyPressed -= OnTurboKeyPressed;
-            _turboKeyWatcher.BrightnessKeyPressed -= OnBrightnessKeyPressed;
             _turboKeyWatcher.PowerSourceReceived -= OnAcerPowerSourceReceived;
             _turboKeyWatcher.Dispose();
             _hidModeKeyWatcher.Dispose();
-            CancelPendingModeSwitch();
-            _modeSwitchGate.Dispose();
             _lightingDebouncer.Dispose();
             _smartBoostWorker?.StopAsync(drainPending: true).GetAwaiter().GetResult();
             _energySaverWorker.StopAsync().GetAwaiter().GetResult();
             if (_coverSyncFrameHooked && _hw is ProductionHardwareService hooked)
             {
-                hooked.LightingEngine.FrameUpdated -= OnLightingEngineFrameUpdated;
+                hooked.LightingEngine.IdleStateChanged -= OnLightingEngineIdleStateChanged;
                 _coverSyncFrameHooked = false;
             }
             if (_hw is IDisposable disposableHardware)

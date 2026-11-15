@@ -10,7 +10,19 @@ public partial class MainViewModel
 {
     internal readonly record struct DriverTuningRequest(byte Mode, int Pl1, int Pl2, int Tau,
         PreySense.Core.Driver.GpuPowerOffsets Offsets, int? ProchotOffsetCelsius = null,
-        bool ApplyCpuLimits = true, bool ApplyGpuLimits = true, bool RestoreMsrToStaticFloor = false);
+        bool ApplyCpuLimits = true, bool ApplyGpuLimits = true, bool RestoreMsrToStaticFloor = false,
+        int? GpuRuntimeLimitWatts = null, PreySense.Core.Driver.GpuPowerOffsets? GpuOffsets = null)
+    {
+        public DriverTuningRequest(byte Mode, int Pl1, int Pl2, int Tau,
+            int? GpuRuntimeLimitWatts = null, int? ProchotOffsetCelsius = null,
+            bool ApplyCpuLimits = true, bool RestoreMsrToStaticFloor = false,
+            PreySense.Core.Driver.GpuPowerOffsets? GpuOffsets = null)
+            : this(Mode, Pl1, Pl2, Tau, GpuOffsets ?? new(0, 0, 0), ProchotOffsetCelsius,
+                ApplyCpuLimits, GpuOffsets is not null || GpuRuntimeLimitWatts.HasValue,
+                RestoreMsrToStaticFloor, GpuRuntimeLimitWatts, GpuOffsets)
+        {
+        }
+    }
     internal readonly record struct DriverTuningResult(bool Success, string Status);
     // Allows regression tests to exercise the same automatic/manual orchestration without hardware writes.
     internal Func<DriverTuningRequest, DriverTuningResult>? DriverTuningExecutor { get; set; }
@@ -89,12 +101,13 @@ public partial class MainViewModel
         if (request.ApplyCpuLimits &&
             (request.Pl1 is < 5 or > 300 || request.Pl2 < request.Pl1 || request.Pl2 > 300 || request.Tau is < 0 or > 449))
             return new(false, "CPU limits are out of range.");
-        if (request.ApplyGpuLimits &&
-            (request.Offsets.DeltaWatts is < 0
-                || request.Offsets.DeltaWatts > DriverFactoryCalibration.MaxGpuDeltaWatts
-                || request.Offsets.DeltaWatts % 5 != 0 ||
-                !DriverFactoryCalibration.IsLegalGpuDynamicBoost(request.Offsets.DynamicBoostWatts) ||
-                request.Offsets.PlatformOffsetWatts is < 0 or > 100 || request.Offsets.PlatformOffsetWatts % 5 != 0))
+        var requestedOffsets = request.GpuOffsets ?? request.Offsets;
+        if (request.ApplyGpuLimits && request.GpuRuntimeLimitWatts is null &&
+            (requestedOffsets.DeltaWatts is < 0
+                || requestedOffsets.DeltaWatts > DriverFactoryCalibration.MaxGpuDeltaWatts
+                || requestedOffsets.DeltaWatts % 5 != 0 ||
+                !DriverFactoryCalibration.IsLegalGpuDynamicBoost(requestedOffsets.DynamicBoostWatts) ||
+                requestedOffsets.PlatformOffsetWatts is < 0 or > 255 || requestedOffsets.PlatformOffsetWatts % 5 != 0))
             return new(false, "GPU limits are out of range.");
         if (request.ProchotOffsetCelsius is < 0 or > 63)
             return new(false, "PROCHOT offset must be between 0 and 63°C.");
@@ -107,8 +120,15 @@ public partial class MainViewModel
         {
             if (backend == null)
                 return new(false, "ERM4 platform limits require kernel driver.");
+            var gpuOffsets = request.GpuOffsets;
+            if (gpuOffsets is null && request.GpuRuntimeLimitWatts is int targetWatts)
+            {
+                if (!TryResolveGpuTarget(request.Mode, targetWatts, out gpuOffsets, out string status))
+                    return new(false, status);
+            }
+            gpuOffsets ??= request.Offsets;
             var gpu = new AcerProfileApplyTransaction(backend, new TuningModeController(this))
-                .Apply(request.Mode, request.Offsets.DeltaWatts, request.Offsets.DynamicBoostWatts, (byte)request.Offsets.PlatformOffsetWatts);
+                .Apply(request.Mode, gpuOffsets.DeltaWatts, gpuOffsets.DynamicBoostWatts, (byte)gpuOffsets.PlatformOffsetWatts);
             if (!gpu.Success) return new(false, gpu.Status);
         }
         // Apply/Save with GPU off leaves the current Acer mode alone; mode restores set it first.
@@ -162,7 +182,7 @@ public partial class MainViewModel
             ApplyGpuClocksForProfile(profile);
             if (prochot is null)
                 return new(true, "Acer mode selected.");
-            return ExecuteDriverTuning(new(mode, 0, 0, 0, new(0, 0, 0), prochot, false, false));
+            return ExecuteDriverTuning(new(mode, 0, 0, 0, new PreySense.Core.Driver.GpuPowerOffsets(0, 0, 0), prochot, false, false));
         }
         if (!profile.HasValues)
         {
@@ -176,7 +196,7 @@ public partial class MainViewModel
             return new(false, "Could not switch Acer mode.");
         var tuningResult = ExecuteDriverTuning(new(mode,
             profile.CpuPl1Watts ?? 0, profile.CpuPl2Watts ?? 0, profile.TauSeconds ?? 0,
-            new(profile.GpuDeltaWatts ?? 0, profile.GpuDynamicBoostWatts ?? 0, profile.PlatformPowerOffsetWatts ?? 0),
+            new PreySense.Core.Driver.GpuPowerOffsets(profile.GpuDeltaWatts ?? 0, profile.GpuDynamicBoostWatts ?? 0, profile.PlatformPowerOffsetWatts ?? 0),
             prochot, profile.ApplyCpuLimits, applyGpu));
         if (tuningResult.Success) ApplyGpuClocksForProfile(profile);
         return tuningResult;
@@ -306,7 +326,11 @@ public partial class MainViewModel
             return false;
         }
         CancelPendingModeSwitch();
-        await _modeSwitchGate.WaitAsync();
+        if (!await TryEnterModeSwitchGateAsync())
+        {
+            DiagnosticMessage = "Tuning stays off — PreySense is shutting down.";
+            return false;
+        }
         IsBusy = true;
         try
         {
@@ -383,6 +407,6 @@ public partial class MainViewModel
             try { ActivePowerMode = await Task.Run(() => _hw.CurrentPowerMode); UpdateModeName(ActivePowerMode); NotifyModeSelectionsChanged(); } catch { }
             return false;
         }
-        finally { IsBusy = false; _modeSwitchGate.Release(); }
+        finally { IsBusy = false; ExitModeSwitchGate(); }
     }
 }

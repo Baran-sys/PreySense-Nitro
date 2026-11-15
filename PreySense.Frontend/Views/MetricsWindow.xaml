@@ -44,6 +44,16 @@
 
                         <Separator Margin="0,4,0,8"/>
 
+                        <!-- Overlay Theme -->
+                        <controls:SettingDropdownRow x:Name="DropdownOverlayTheme"
+                                                     Title="Theme"
+                                                     DropdownWidth="140"
+                                                     ToolTip="Switch the overlay palette between Dark and White themes."
+                                                     SelectionChanged="OverlayTheme_SelectionChanged">
+                            <ComboBoxItem Content="Dark"/>
+                            <ComboBoxItem Content="White"/>
+                        </controls:SettingDropdownRow>
+
                         <!-- HUD Scale -->
                         <Grid Background="Transparent" Margin="{StaticResource StandardRowMargin}"
                               ToolTip="Adjust the overall size of the on-screen overlay text, icons, and graphs (50% to 200%).">
@@ -77,6 +87,18 @@
                                     <TextBlock x:Name="LabelTextOpacity" Text="100%" HorizontalAlignment="Right" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 </Grid>
                                 <Slider x:Name="SliderTextOpacity" Minimum="0" Maximum="100" Value="100" SmallChange="10" LargeChange="10" TickFrequency="10" IsSnapToTickEnabled="True" Margin="0,3,0,0" ValueChanged="SliderTextOpacity_ValueChanged"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Corner Radius -->
+                        <Grid Background="Transparent" Margin="0,4"
+                              ToolTip="Adjust how rounded the corners of the overlay panel appear (0 to 16 px).">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="Corner Radius" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="LabelCornerRadius" Text="6" HorizontalAlignment="Right" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                </Grid>
+                                <Slider x:Name="SliderCornerRadius" Minimum="0" Maximum="16" Value="6" SmallChange="1" LargeChange="2" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,3,0,0" ValueChanged="SliderCornerRadius_ValueChanged"/>
                             </StackPanel>
                         </Grid>
 

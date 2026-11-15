@@ -273,6 +273,9 @@ namespace PreySense.Core.Configuration
                 throw new ArgumentOutOfRangeException(nameof(config.Session.GpuModePreference), "GpuModePreference must be 0, 1, or 2.");
 
             // Overlay validation
+            if (!Enum.IsDefined(config.Overlay.Theme))
+                throw new ArgumentOutOfRangeException("Overlay.Theme", "Choose Dark or White.");
+
             if (config.Overlay.ScalePercent is < 50 or > 200)
                 throw new ArgumentOutOfRangeException(nameof(config.Overlay.ScalePercent), "Overlay scale percent must be between 50 and 200.");
 
@@ -304,6 +307,13 @@ namespace PreySense.Core.Configuration
             }
 
             // Lighting validation
+            if (config.Lighting.ModeBrightness is < 0 or > 100)
+                throw new ArgumentOutOfRangeException(nameof(config.Lighting.ModeBrightness), "Mode brightness must be 0-100.");
+            config.Lighting.PowerModeColors ??= new();
+            PreySense.Rgb.OemLightingController.Validate(new DeviceLightingConfig { PowerModeColors = config.Lighting.PowerModeColors });
+            config.Lighting.Devices ??= new();
+            if (config.Lighting.Devices.Count > 128) throw new ArgumentException("Too many lighting device profiles.");
+            foreach (var profile in config.Lighting.Devices.Values) PreySense.Rgb.OemLightingController.Validate(profile);
             if (config.Lighting.Keyboard.Brightness is < 0 or > 100)
                 throw new ArgumentOutOfRangeException(nameof(config.Lighting.Keyboard.Brightness), "Keyboard brightness must be 0-100.");
 
@@ -420,6 +430,8 @@ namespace PreySense.Core.Configuration
                 loaded.Fans ??= new FanConfig();
                 loaded.Lighting ??= new LightingConfig();
                 loaded.Overlay ??= new OverlayConfig();
+                loaded.Games ??= new GamesConfig();
+                loaded.Games.Profiles ??= new();
 
                 loaded.Tuning.Quiet ??= new ModeTuningConfig();
                 loaded.Tuning.Eco ??= new ModeTuningConfig();
@@ -429,6 +441,8 @@ namespace PreySense.Core.Configuration
 
                 loaded.Lighting.Keyboard ??= new KeyboardLightingConfig();
                 loaded.Lighting.Cover ??= new CoverLightingConfig();
+                loaded.Lighting.PowerModeColors ??= new();
+                loaded.Lighting.Devices ??= new();
 
                 loaded.Overlay.Slots ??= OverlayConfig.CreateDefaultSlots();
 

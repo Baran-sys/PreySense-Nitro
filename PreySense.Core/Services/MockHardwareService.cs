@@ -156,6 +156,7 @@ namespace PreySense.Core.Services
         public int SetRgbAllZonesCount { get; private set; }
         public int SetRgbHardwareEffectCount { get; private set; }
         public int SetRgbBrightnessCount { get; private set; }
+        public bool IsCoverLightingAvailable => true;
         public int SetCoverLogoLightingCount { get; private set; }
 
         public void SetRgbStatic(byte zone, Color color) => SetRgbStaticCount++;

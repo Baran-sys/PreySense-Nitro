@@ -332,4 +332,42 @@ public class TuningCalibrationTests
         Assert.IsNull(saved.ProchotOffsetCelsius);
         Assert.IsFalse(_vm.IsProchotOffsetEnabled);
     }
+
+    [TestMethod]
+    public void BuildIntelFallbackFactoryCapture_ProducesCompleteCpuOnlyDefaultsForNonErm4Laptops()
+    {
+        var capture = MainViewModel.BuildIntelFallbackFactoryCapture(null, null, 85);
+        var tuning = new TuningConfig
+        {
+            FactoryDefaults = capture.Profiles,
+            FactoryStaticCpuPl1Watts = capture.StaticCpuPl1Watts,
+            FactoryStaticCpuPl2Watts = capture.StaticCpuPl2Watts,
+            FactoryProchotOffsetCelsius = capture.ProchotOffsetCelsius,
+            FactoryProchotOffsetLocked = capture.ProchotOffsetLocked,
+            FactoryTjMaxCelsius = capture.TjMaxCelsius
+        };
+
+        Assert.HasCount(5, capture.Profiles);
+        Assert.IsTrue(tuning.HasFactoryDefaults);
+        Assert.IsTrue(tuning.HasFactoryStaticCpuLimits);
+        Assert.IsFalse(tuning.HasFactoryGpuProfiles);
+        Assert.AreEqual(85, capture.Profiles["Balanced"].GpuWatts);
+    }
+
+    [TestMethod]
+    public async Task EnableTuning_PopulatesIntelFallbackWhenProductionCaptureWasUnavailable()
+    {
+        _vm.GpuBasePowerWatts = 85;
+        _vm.CaptureTuningDefaults = null;
+
+        _vm.IsHardwareTuningEnabled = true;
+        await _vm.TuningEnableTask;
+
+        var saved = _store.Reload();
+        Assert.IsTrue(_vm.IsHardwareTuningEnabled, _vm.DiagnosticMessage);
+        Assert.IsTrue(saved.General.HardwareTuningEnabled);
+        Assert.IsTrue(saved.Tuning.HasFactoryDefaults);
+        Assert.IsTrue(saved.Tuning.HasFactoryStaticCpuLimits);
+        Assert.IsFalse(saved.Tuning.HasFactoryGpuProfiles);
+    }
 }

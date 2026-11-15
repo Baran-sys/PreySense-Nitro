@@ -39,6 +39,24 @@
                         LeftIcon="pack://application:,,,/PreySense;component/Resources/icons8-processor-32.png"
                         RightIcon="pack://application:,,,/PreySense;component/Resources/icons8-video-card-32.png"
                         SelectionChanged="FanTab_Changed"/>
+                    <UniformGrid Columns="2" Margin="0,0,0,8">
+                        <StackPanel Margin="0,0,8,0">
+                            <TextBlock Text="CPU" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                <TextBlock x:Name="CpuTemperatureReading" Text="&#x2014;" FontWeight="SemiBold"/>
+                                <TextBlock Text="  &#x2022;  " Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock x:Name="CpuFanReading" Text="&#x2014;" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel Margin="8,0,0,0" HorizontalAlignment="Right">
+                            <TextBlock Text="GPU" TextAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                <TextBlock x:Name="GpuTemperatureReading" Text="&#x2014;" FontWeight="SemiBold"/>
+                                <TextBlock Text="  &#x2022;  " Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock x:Name="GpuFanReading" Text="&#x2014;" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </UniformGrid>
                     <StackPanel x:Name="CurveEditor">
                         <controls:SettingSliderRow x:Name="RampUpRow" Title="Ramp Up"
                             ToolTip="Time window to smoothly accelerate fans when temperature rises, preventing sudden fan spikes."

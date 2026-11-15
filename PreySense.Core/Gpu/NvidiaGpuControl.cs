@@ -265,6 +265,7 @@ namespace PreySense.Gpu
                 NvmlHelper.Shutdown();
                 return default;
             }
+            FlushPendingTuningIfAwake();
             var temperature = Wants(TelemetryMetrics.GpuTemperature) ? ReadAwakeTemperature() : null;
             if ((requested & ~TelemetryMetrics.GpuTemperature) == 0)
                 return new Metrics(true, temperature, null, null, null, null, null, null, null);
@@ -411,19 +412,57 @@ namespace PreySense.Gpu
         public const int MinMemoryOffset = -500;
         public const int MaxMemoryOffset = 1000;
 
+        private readonly object _pendingTuningGate = new();
+        private (int Core, int Memory)? _pendingClockOffsets;
+        private int? _pendingClockCeilingMhz; // > 0 = lock to MHz, 0 = reset lock, null = none pending
+
+        private enum TuningApplyTarget { ApplyNow, QueuePending, Unavailable }
+
+        private TuningApplyTarget GetTuningApplyTarget(bool allowRefreshDevice)
+        {
+            int? powerState = PreySense.Helpers.DeviceHelper.GetDisplayDevicePowerState("VEN_10DE");
+            if (powerState is > 1)
+                return TuningApplyTarget.QueuePending;
+            if (powerState is <= 0)
+                return TuningApplyTarget.Unavailable;
+
+            if (allowRefreshDevice && (!IsValid || _internalGpu is null) && powerState == 1)
+                RefreshDevice();
+
+            if (!IsValid || _internalGpu is null)
+                return TuningApplyTarget.Unavailable;
+
+            return GetGpuState(out _) switch
+            {
+                GpuState.Active => TuningApplyTarget.ApplyNow,
+                GpuState.Asleep => TuningApplyTarget.QueuePending,
+                _ => TuningApplyTarget.Unavailable
+            };
+        }
+
         public bool IsClockTuningSupported
         {
             get
             {
-                if (!IsValid || _internalGpu is null) return false;
+                int? powerState = PreySense.Helpers.DeviceHelper.GetDisplayDevicePowerState("VEN_10DE");
+                if (powerState is > 1)
+                    return true;
+                if (powerState is <= 0)
+                    return false;
+
+                if (!IsValid || _internalGpu is null)
+                    RefreshDevice();
+                if (!IsValid || _internalGpu is null)
+                    return false;
                 try
                 {
                     var states = GPUApi.GetPerformanceStates20(_internalGpu.Handle);
-                    return states.IsEditable;
+                    return states.IsEditable || GetGpuState(out _) != GpuState.Off;
                 }
-                catch
+                catch (Exception ex)
                 {
-                    return false;
+                    return ex.Message == "NVAPI_GPU_NOT_POWERED"
+                        || GetGpuState(out _) is GpuState.Active or GpuState.Asleep;
                 }
             }
         }
@@ -466,6 +505,23 @@ namespace PreySense.Gpu
             core = Math.Clamp(core, MinCoreOffset, MaxCoreOffset);
             memory = Math.Clamp(memory, MinMemoryOffset, MaxMemoryOffset);
 
+            var target = GetTuningApplyTarget(allowRefreshDevice: true);
+            if (target == TuningApplyTarget.Unavailable)
+                return -1;
+
+            lock (_pendingTuningGate)
+            {
+                _pendingClockOffsets = (core, memory);
+            }
+
+            if (target == TuningApplyTarget.QueuePending)
+                return 1;
+
+            return ApplyClocksImmediate(core, memory);
+        }
+
+        private int ApplyClocksImmediate(int core, int memory)
+        {
             if (!IsValid || _internalGpu is null) return -1;
 
             try
@@ -481,11 +537,24 @@ namespace PreySense.Gpu
 
                 var overclock = new PerformanceStates20InfoV1(performanceStates, 2, 0);
                 GPUApi.SetPerformanceStates20(_internalGpu.Handle, overclock);
+                lock (_pendingTuningGate)
+                {
+                    if (_pendingClockOffsets == (core, memory))
+                        _pendingClockOffsets = null;
+                }
                 AppLogger.Log($"SET GPU CLOCKS: core={core}MHz memory={memory}MHz");
                 return 1;
             }
             catch (Exception ex)
             {
+                if (ex.Message != "NVAPI_GPU_NOT_POWERED")
+                {
+                    lock (_pendingTuningGate)
+                    {
+                        if (_pendingClockOffsets == (core, memory))
+                            _pendingClockOffsets = null;
+                    }
+                }
                 AppLogger.Error("SET GPU CLOCKS failed: " + ex.Message);
                 return -1;
             }
@@ -496,16 +565,54 @@ namespace PreySense.Gpu
             return SetClocks(0, 0);
         }
 
-        public bool SetGpuClockCeiling(int maxClockMhz)
+        public bool SetGpuClockCeiling(int maxClockMhz) => ApplyOrQueueClockCeiling(Math.Max(1, maxClockMhz));
+
+        public bool ResetGpuClockCeiling() => ApplyOrQueueClockCeiling(0);
+
+        private bool ApplyOrQueueClockCeiling(int ceilingMhz)
         {
-            if (!IsValid) return false;
-            return NvmlHelper.SetGpuLockedClocks(0, (uint)maxClockMhz);
+            var target = GetTuningApplyTarget(allowRefreshDevice: true);
+            if (target == TuningApplyTarget.Unavailable)
+                return false;
+
+            lock (_pendingTuningGate)
+            {
+                _pendingClockCeilingMhz = ceilingMhz;
+            }
+
+            if (target == TuningApplyTarget.QueuePending)
+                return true;
+
+            return ApplyClockCeilingImmediate(ceilingMhz);
         }
 
-        public bool ResetGpuClockCeiling()
+        private bool ApplyClockCeilingImmediate(int ceilingMhz)
         {
-            if (!IsValid) return false;
-            return NvmlHelper.ResetGpuLockedClocks();
+            bool ok = ceilingMhz > 0
+                ? NvmlHelper.SetGpuLockedClocks(0, (uint)ceilingMhz)
+                : NvmlHelper.ResetGpuLockedClocks();
+            lock (_pendingTuningGate)
+            {
+                if (_pendingClockCeilingMhz == ceilingMhz)
+                    _pendingClockCeilingMhz = null;
+            }
+            return ok;
+        }
+
+        private void FlushPendingTuningIfAwake()
+        {
+            (int Core, int Memory)? clocks;
+            int? ceiling;
+            lock (_pendingTuningGate)
+            {
+                clocks = _pendingClockOffsets;
+                ceiling = _pendingClockCeilingMhz;
+            }
+
+            if (clocks.HasValue)
+                ApplyClocksImmediate(clocks.Value.Core, clocks.Value.Memory);
+            if (ceiling.HasValue)
+                ApplyClockCeilingImmediate(ceiling.Value);
         }
 
         public System.Collections.Generic.List<GpuProcessInfo> GetGpuProcesses()

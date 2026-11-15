@@ -257,14 +257,21 @@ namespace PreySense.Helpers
 
         private readonly Lazy<EnekRgbClient> _enekRgbClient = new(() => new EnekRgbClient(), true);
         private readonly Lazy<AcerCoverLogoHidClient> _coverLogoHidClient = new(() => new AcerCoverLogoHidClient(), true);
+        private CustomLightingEffectsEngine? _attachedEffects;
         private readonly Lazy<CustomLightingEffectsEngine> _customEffects;
+        private readonly Lazy<OemLightingController> _oemLighting = new(() => new OemLightingController(), true);
+        public OemLightingController OemLighting => _oemLighting.Value;
 
         private EnekRgbClient EnekRgbClient => _enekRgbClient.Value;
         private AcerCoverLogoHidClient CoverLogoHid => _coverLogoHidClient.Value;
-        private CustomLightingEffectsEngine Effects => _customEffects.Value;
+        /// <summary>Prefer the Production-owned engine when attached so FrameUpdated/idle stay single-instance.</summary>
+        private CustomLightingEffectsEngine Effects => _attachedEffects ?? _customEffects.Value;
+
+        public void AttachLightingEngine(CustomLightingEffectsEngine engine) =>
+            _attachedEffects = engine ?? throw new ArgumentNullException(nameof(engine));
 
         public bool IsEnekRgbAvailable => EnekRgbClient.IsAvailable;
-        public bool IsCoverLogoHidAvailable => CoverLogoHid.IsAvailable;
+        public bool IsCoverLogoHidAvailable => AcerHidLightingCapabilities.GetSupportedTargets().Contains(0x83);
 
         public EnekRgbClient EnekRgb => EnekRgbClient;
         public AcerCoverLogoHidClient CoverLogoHidClient => CoverLogoHid;
@@ -405,6 +412,7 @@ namespace PreySense.Helpers
 
         public void SetLogoLighting(int mode, byte r, byte g, byte b, byte brightness, byte speed, bool enabled = true)
         {
+            if (!IsCoverLogoHidAvailable) return;
             byte scaledBrightness = !enabled || mode == 0 ? (byte)0 : Math.Clamp(brightness, (byte)0, (byte)100);
             // HID / Acer logo modes are 1–5. UI speed is 0–100%.
             byte logoSpeed = (byte)Math.Clamp(speed <= 5 ? speed : (int)Math.Round(Math.Max((int)speed, 1) / 20.0), 1, 5);
@@ -504,6 +512,9 @@ namespace PreySense.Helpers
             if (EnekRgbClient.IsAvailable && EnekRgbClient.SetZoneColors(_zoneColors, scaledBrightness))
                 return;
 
+            if (OemLighting.ApplyKeyboardFallback(_zoneColors, scaledBrightness))
+                return;
+
             if (ApplyZoneLightingWmi())
                 return;
 
@@ -514,7 +525,7 @@ namespace PreySense.Helpers
         {
             if (mode == 0)
             {
-                Effects.Stop();
+                Effects.StopAndWait();
                 ApplyZoneLighting();
                 return;
             }
@@ -529,25 +540,25 @@ namespace PreySense.Helpers
             }
 
             // Stop any running custom software effect when switching back to hardware modes (1..7)
-            Effects.Stop();
+            Effects.StopAndWait();
 
-            float factor = Math.Clamp(_brightness / 100.0f, 0f, 1f);
-            byte dimR = (byte)Math.Clamp((int)Math.Round(_lastR * factor), 0, 255);
-            byte dimG = (byte)Math.Clamp((int)Math.Round(_lastG * factor), 0, 255);
-            byte dimB = (byte)Math.Clamp((int)Math.Round(_lastB * factor), 0, 255);
             byte scaledBrightness = (byte)Math.Clamp((int)_brightness, 0, 100);
             byte scaledSpeed = (byte)Math.Clamp((int)_speed, 1, 10);
+            // Match Static: full RGB + brightness byte. Pre-dimming RGB made HW effects look darker.
+            var effectColor = Color.FromArgb(_lastR, _lastG, _lastB);
 
-            // Hardware animations key off color luminance; send dimmed RGB plus the 0–100 brightness byte.
             if (EnekRgbClient.IsAvailable)
             {
-                if (EnekRgbClient.SetDynamicEffect(mode, Color.FromArgb(dimR, dimG, dimB), scaledBrightness, scaledSpeed, _direction))
+                if (EnekRgbClient.SetDynamicEffect(mode, effectColor, scaledBrightness, scaledSpeed, _direction))
                 {
                     string modeName = mode >= 0 && mode < RgbProfile.UiModeNames.Length ? RgbProfile.UiModeNames[mode] : $"Unknown (0x{mode:X})";
                     AppLogger.Log($"Keyboard lighting mode set via ENEK5130 Direct HID: {modeName} (brightness={_brightness}, speed={_speed}, direction={_direction})");
                     return;
                 }
             }
+
+            if (OemLighting.ApplyKeyboardModeFallback(mode, effectColor, scaledBrightness, scaledSpeed, _direction))
+                return;
 
             if (ApplyDynamicLightingWmi(mode))
                 return;
@@ -1117,6 +1128,12 @@ namespace PreySense.Helpers
 
         public bool SetGpuMuxMode(int mode)
         {
+            if (mode == GpuMuxDiscrete && GetGpuMuxModeWmi() is not (GpuMuxOptimus or GpuMuxDiscrete or GpuMuxAuto))
+            {
+                AppLogger.Log("SetGpuMuxMode: Blocked GpuMuxDiscrete because GetGpuMuxModeWmi() returned null (unsupported firmware MUX).");
+                return false;
+            }
+
             ulong payload = GpuMuxPayload(mode);
             var (acpiOk, _) = SendCommand(AcerWmi.GamingMethods.SetMiscSetting, payload);
             if (acpiOk)
@@ -1166,6 +1183,8 @@ namespace PreySense.Helpers
                 EnekRgbClient.Dispose();
             if (_coverLogoHidClient.IsValueCreated)
                 CoverLogoHid.Dispose();
+            if (_oemLighting.IsValueCreated)
+                OemLighting.Dispose();
         }
     }
 }

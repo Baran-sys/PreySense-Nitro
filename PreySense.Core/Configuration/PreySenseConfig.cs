@@ -47,6 +47,15 @@ namespace PreySense.Core.Configuration
 
         /// <summary>On-Screen Display (OSD) overlay layout and metric preferences.</summary>
         public OverlayConfig Overlay { get; set; } = new();
+
+        /// <summary>Opt-in game detection and executable-to-operating-mode profiles.</summary>
+        public GamesConfig Games { get; set; } = new();
+    }
+
+    public sealed class GamesConfig
+    {
+        public bool Enabled { get; set; } = false;
+        public List<GameProfile> Profiles { get; set; } = new();
     }
 
     public sealed class GeneralConfig
@@ -126,6 +135,17 @@ namespace PreySense.Core.Configuration
         public bool ApplyProchotOffset { get; set; }
         [JsonPropertyOrder(1)]
         public int? ProchotOffsetCelsius { get; set; }
+        /// <summary>Master toggle: Enable CPU Power Limit Control across all performance modes.</summary>
+        [JsonPropertyOrder(2)]
+        public bool EnableCpuPowerLimitControl { get; set; } = true;
+        /// <summary>Master toggle: Enable GPU Power Limit Control across all performance modes.</summary>
+        [JsonPropertyOrder(3)]
+        public bool EnableGpuPowerLimitControl { get; set; } = true;
+        /// <summary>Master toggle: Enable GPU Overclocking across all performance modes.</summary>
+        [JsonPropertyOrder(4)]
+        public bool EnableGpuOverclockingControl { get; set; } = true;
+        /// <summary>Apply each selected mode's CPU boost policy on every mode change.</summary>
+        public bool EnableCpuBoostTuningControl { get; set; } = true;
         [JsonPropertyOrder(9)]
         public int? FactoryProchotOffsetCelsius { get; set; }
         [JsonPropertyOrder(10)]
@@ -296,9 +316,15 @@ namespace PreySense.Core.Configuration
         [JsonPropertyOrder(0)]
         public bool ApplyCpuLimits { get; set; } = false;
 
+        /// <summary>Apply the selected Windows CPU boost policy independently of power limits.</summary>
+        public bool ApplyCpuBoost { get; set; }
+
         /// <summary>Apply GPU limits flag for this profile.</summary>
         [JsonPropertyOrder(6)]
         public bool ApplyGpuLimits { get; set; } = false;
+
+        /// <summary>Optional runtime GPU power limit target in Watts.</summary>
+        public int? GpuRuntimeLimitWatts { get; set; }
 
         /// <summary>GPU core clock offset in MHz (-200..+250).</summary>
         [JsonPropertyOrder(11)]
@@ -486,38 +512,88 @@ namespace PreySense.Core.Configuration
 
     public sealed class LightingConfig
     {
+        public int ModeBrightness { get; set; } = 100;
+        /// <summary>Shared color overrides for Mode lighting on every device; hex operating-mode keys.</summary>
+        public Dictionary<string, string> PowerModeColors { get; set; } = new();
         public KeyboardLightingConfig Keyboard { get; set; } = new();
         public CoverLightingConfig Cover { get; set; } = new();
+        public Dictionary<string, DeviceLightingConfig> Devices { get; set; } = new();
+    }
+
+    /// <summary>Explicit settings for a detected device; discovery never creates profiles.</summary>
+    public sealed class DeviceLightingConfig
+    {
+        public int Mode { get; set; } = PreySense.Rgb.ModeKeyLighting.FollowOperatingMode;
+        public int Brightness { get; set; } = 100;
+        public int Speed { get; set; } = 50;
+        /// <summary>Exact native animation level selected in the UI; null uses the existing normalized Speed.</summary>
+        public int? AnimationSpeedLevel { get; set; }
+        /// <summary>Native effect direction selected from the device's advertised options.</summary>
+        public int? Direction { get; set; }
+        public string ColorHex { get; set; } = "#00AEC7";
+        public bool IndividualColors { get; set; }
+        public bool SyncLeds { get; set; }
+        public bool RandomColors { get; set; }
+        public Dictionary<int, string> LedColors { get; set; } = new();
+        /// <summary>Per Acer operating-mode colors for Mode Key "Mode" lighting (keys are hex mode bytes, e.g. "05").</summary>
+        public Dictionary<string, string> PowerModeColors { get; set; } = new();
+        /// <summary>When true (Mode Key / Turbo Key), follow the keyboard color and brightness.</summary>
+        public bool SyncWithKeyboard { get; set; }
     }
 
     public sealed class KeyboardLightingConfig
     {
+        public int? Direction { get; set; }
+        public Dictionary<string, string> PowerModeColors { get; set; } = new();
         public int Brightness { get; set; } = 100;
         public int Speed { get; set; } = 50;
         public int BacklightTimeoutSeconds { get; set; } = 30;
-        public string SelectedColorHex { get; set; } = "#00E5FF";
+        public string SelectedColorHex { get; set; } = "#00AEC7";
         public int SelectedZone { get; set; } = 1;
         public bool SyncZones { get; set; } = false;
-        public string Zone1ColorHex { get; set; } = "#00E5FF";
-        public string Zone2ColorHex { get; set; } = "#00E5FF";
+        public string Zone1ColorHex { get; set; } = "#00AEC7";
+        public string Zone2ColorHex { get; set; } = "#00AEC7";
         public string Zone3ColorHex { get; set; } = "#00E5FF";
-        public string Zone4ColorHex { get; set; } = "#FFFFFF";
-        public string EffectTag { get; set; } = "HW:0";
-        public string PresetTheme { get; set; } = "Predator";
+        public string Zone4ColorHex { get; set; } = "#00E5FF";
+        public string EffectTag { get; set; } = "MODE";
+        public string PresetTheme { get; set; } = "Mode";
     }
 
     public sealed class CoverLightingConfig
     {
         public bool Enabled { get; set; } = true;
-        public int Mode { get; set; } = 1;
-        public string ColorHex { get; set; } = "#00E5FF";
+        public int Mode { get; set; } = 4;
+        public string ColorHex { get; set; } = "#00AEC7";
         public int Brightness { get; set; } = 100;
         public int Speed { get; set; } = 50;
         public bool SyncWithKeyboard { get; set; } = false;
     }
 
+    [JsonConverter(typeof(JsonStringEnumConverter<OverlayTheme>))]
+    public enum OverlayTheme
+    {
+        Dark = 0,
+        White = 1
+    }
+
     public sealed class OverlayConfig
     {
+        public OverlayTheme Theme { get; set; } = OverlayTheme.Dark;
+
+        /// <summary>Apply an appearance preset without changing metrics, layout, or polling.</summary>
+        public void ApplyTheme(OverlayTheme theme)
+        {
+            if (!Enum.IsDefined(theme)) throw new ArgumentOutOfRangeException(nameof(theme));
+            Theme = theme;
+            BackgroundColorHex = theme == OverlayTheme.Dark ? "#000000" : "#F5F5F7";
+            CpuTextColorHex = GpuTextColorHex = theme == OverlayTheme.Dark ? "#F5F5F7" : "#17191C";
+            BackgroundAlphaPercent = 100;
+            TextAlphaPercent = 100;
+            CpuGraphColorHex = "#2C7CB4";
+            GpuGraphColorHex = theme == OverlayTheme.Dark ? "#3AAA54" : "#218739";
+            ShowBackgroundShading = false;
+        }
+
         /// <summary>Master toggle for hardware overlay.</summary>
         public bool Enabled { get; set; } = false;
 

@@ -11,7 +11,9 @@ public enum TelemetryDemand
     MainWindow = 1 << 0,
     Overlay = 1 << 1,
     FanController = 1 << 2,
-    SmartBoost = 1 << 3
+    SmartBoost = 1 << 3,
+    FanWindow = 1 << 4,
+    FanCalibration = 1 << 5
 }
 
 public readonly record struct FrameTelemetry(double? FramesPerSecond, double? FrameTimeMilliseconds, int? ProcessId);
@@ -243,7 +245,8 @@ public static class TelemetryCoordinator
                 var metrics = _overlayActive ? TelemetryMetrics.FrameRate : TelemetryMetrics.None;
                 if (demand.HasFlag(TelemetryDemand.MainWindow)) metrics |= MainWindowMetrics;
                 if (demand.HasFlag(TelemetryDemand.Overlay)) metrics |= _overlayMetrics;
-                if (demand.HasFlag(TelemetryDemand.FanController))
+                if (demand.HasFlag(TelemetryDemand.FanController) ||
+                    (demand & (TelemetryDemand.FanWindow | TelemetryDemand.FanCalibration)) != 0)
                     metrics |= TelemetryMetrics.Temperatures | TelemetryMetrics.CpuFanRpm | TelemetryMetrics.GpuFanRpm;
                 if (demand.HasFlag(TelemetryDemand.SmartBoost))
                     metrics |= TelemetryMetrics.Temperatures;
@@ -314,28 +317,30 @@ public static class TelemetryCoordinator
     }
 
     public static bool HasActiveDemand => Volatile.Read(ref _demandMask) != 0 || _overlayActive;
-    public static bool HasUiDemand => _overlayActive || (Volatile.Read(ref _demandMask) & (int)(TelemetryDemand.MainWindow | TelemetryDemand.Overlay)) != 0;
+    public static bool HasUiDemand => _overlayActive || (Volatile.Read(ref _demandMask) & (int)(TelemetryDemand.MainWindow | TelemetryDemand.Overlay | TelemetryDemand.FanWindow | TelemetryDemand.FanCalibration)) != 0;
     public static bool HasFanOnlyDemand => HasActiveDemand && !HasUiDemand;
     public static TelemetryDemand ActiveDemand => (TelemetryDemand)Volatile.Read(ref _demandMask);
 
     static TelemetryCoordinator()
     {
         // Timer ticks and explicit requests use the same rate and concurrency limits.
-        MasterTimer.Elapsed += (_, _) =>
+        MasterTimer.Elapsed += (_, _) => RunMasterCycle();
+    }
+
+    internal static void RunMasterCycle()
+    {
+        if (Interlocked.Exchange(ref _cycleInProgress, 1) != 0) return;
+        try
         {
-            if (Interlocked.Exchange(ref _cycleInProgress, 1) != 0) return;
-            try
-            {
-                Heartbeat?.Invoke();
-                Poll();
-            }
-            catch (Exception ex) { AppLogger.Log($"Telemetry cycle failed: {ex.Message}"); }
-            finally
-            {
-                Volatile.Write(ref _cycleInProgress, 0);
-                ScheduleNextMasterTick();
-            }
-        };
+            Heartbeat?.Invoke();
+            Poll();
+        }
+        catch (Exception ex) { AppLogger.Log($"Telemetry cycle failed: {ex.Message}"); }
+        finally
+        {
+            Volatile.Write(ref _cycleInProgress, 0);
+            ScheduleNextMasterTick();
+        }
     }
 
     private static void ScheduleNextMasterTick()

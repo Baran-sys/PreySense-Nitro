@@ -117,7 +117,7 @@ namespace PreySense.Frontend
                         RunOnUi(() =>
                         {
                             if (DataContext is MainViewModel mvm)
-                                mvm.StepKeyboardBrightness(delta);
+                                mvm.HandleFnBrightness(delta, "Keyboard");
                         });
                     });
             }
@@ -155,9 +155,18 @@ namespace PreySense.Frontend
 
         public void QuitApplication()
         {
-            RunOnUi(() =>
+            RunOnUi(async () =>
             {
+                if (_isExplicitExit) return;
                 _isExplicitExit = true;
+                try
+                {
+                    if (DataContext is MainViewModel vm)
+                    {
+                        await vm.PrepareGameModeShutdownAsync();
+                    }
+                }
+                catch { }
                 Close();
                 Application.Current.Shutdown();
             });
@@ -201,6 +210,9 @@ namespace PreySense.Frontend
             ShowModeSettingsWindow();
         }
 
+        private void GamesButton_Click(object sender, RoutedEventArgs e) =>
+            ShowToolWindow<Views.GamesWindow>();
+
         private void FansButton_Click(object sender, RoutedEventArgs e) =>
             ShowToolWindow<Views.FanCurveWindow>();
 
@@ -224,6 +236,7 @@ namespace PreySense.Frontend
                 window = new TWindow { Owner = this, DataContext = DataContext, ShowInTaskbar = false };
                 _toolWindows.Add(typeof(TWindow), window);
                 window.Activated += (_, _) => _lastActiveWindow = window;
+                window.Closing += (_, _) => GuardToolWindowClose();
                 window.Closed += (_, _) =>
                 {
                     _toolWindows.Remove(typeof(TWindow));

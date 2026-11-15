@@ -56,8 +56,14 @@ public partial class MainViewModel
 
     private bool _lastCpuBoostApplySucceeded = true;
 
+    internal Func<int, bool>? CpuBoostWriter { get; set; }
+
+    private bool IsModeCpuBoostTuningEnabled =>
+        (TuningConfigurationReader?.Invoke() ?? TuningStore.GetCurrent()).Tuning.EnableCpuBoostTuningControl;
+
     public bool ApplyCpuBoostForMode(byte mode)
     {
+        if (!IsModeCpuBoostTuningEnabled) return true;
         int boost = CpuBoostModeForMode(mode);
         CpuBoostMode = boost;
         BumpSmartBoostEpoch();
@@ -66,13 +72,14 @@ public partial class MainViewModel
             SmartBoost.SetBaseMode(boost);
             UpdateSmartBoostDemand();
         }
-        _lastCpuBoostApplySucceeded = PowerLimitController.SetCpuBoost(boost);
+        _lastCpuBoostApplySucceeded = (CpuBoostWriter ?? PowerLimitController.SetCpuBoost)(boost);
         if (!_lastCpuBoostApplySucceeded) DiagnosticMessage = "Could not apply CPU boost.";
         return _lastCpuBoostApplySucceeded;
     }
 
     public async System.Threading.Tasks.Task<bool> ApplyCpuBoostForModeAsync(byte mode)
     {
+        if (!IsModeCpuBoostTuningEnabled) return true;
         int boost = CpuBoostModeForMode(mode);
         CpuBoostMode = boost;
         BumpSmartBoostEpoch();
@@ -81,7 +88,7 @@ public partial class MainViewModel
             SmartBoost.SetBaseMode(boost);
             UpdateSmartBoostDemand();
         }
-        bool applied = await System.Threading.Tasks.Task.Run(() => PowerLimitController.SetCpuBoost(boost));
+        bool applied = await System.Threading.Tasks.Task.Run(() => (CpuBoostWriter ?? PowerLimitController.SetCpuBoost)(boost));
         _lastCpuBoostApplySucceeded = applied;
         if (!applied) DiagnosticMessage = "Could not apply CPU boost.";
         return applied;

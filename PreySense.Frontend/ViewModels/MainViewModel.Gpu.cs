@@ -75,6 +75,8 @@ namespace PreySense.Frontend.ViewModels
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(ShowIgpuOnlyTile))]
+        [NotifyPropertyChangedFor(nameof(ShowDgpuOnlyTile))]
+        [NotifyPropertyChangedFor(nameof(IsDgpuOnlySupported))]
         [NotifyPropertyChangedFor(nameof(GpuModeTileColumns))]
         [NotifyPropertyChangedFor(nameof(IsGpuOptimusActive))]
         [NotifyPropertyChangedFor(nameof(IsGpuAutoActive))]
@@ -92,6 +94,7 @@ namespace PreySense.Frontend.ViewModels
         [NotifyPropertyChangedFor(nameof(ShowIgpuOnlyTile))]
         [NotifyPropertyChangedFor(nameof(ShowAdvancedOptimusTile))]
         [NotifyPropertyChangedFor(nameof(ShowDgpuOnlyTile))]
+        [NotifyPropertyChangedFor(nameof(IsDgpuOnlySupported))]
         [NotifyPropertyChangedFor(nameof(GpuModeTileColumns))]
         [NotifyPropertyChangedFor(nameof(IsGpuOptimusActive))]
         [NotifyPropertyChangedFor(nameof(IsGpuAutoActive))]
@@ -103,7 +106,8 @@ namespace PreySense.Frontend.ViewModels
         public bool ShowDdsGpuTiles => !IsBiosDiscreteGpuActive;
         public bool ShowIgpuOnlyTile => ShowDdsGpuTiles && !IsGpuNvidiaOnlyActive;
         public bool ShowAdvancedOptimusTile => ShowDdsGpuTiles && !IsGpuIgpuOnlyActive;
-        public bool ShowDgpuOnlyTile => !IsGpuIgpuOnlyActive;
+        public bool IsDgpuOnlySupported => IsBiosDiscreteGpuActive || (!IsGpuIgpuOnlyActive && ActiveGpuMuxMode >= 0);
+        public bool ShowDgpuOnlyTile => IsDgpuOnlySupported;
         public int GpuModeTileColumns
         {
             get
@@ -201,6 +205,7 @@ namespace PreySense.Frontend.ViewModels
             OnPropertyChanged(nameof(ShowDdsGpuTiles));
             OnPropertyChanged(nameof(ShowIgpuOnlyTile));
             OnPropertyChanged(nameof(ShowAdvancedOptimusTile));
+            OnPropertyChanged(nameof(IsDgpuOnlySupported));
             OnPropertyChanged(nameof(ShowDgpuOnlyTile));
             OnPropertyChanged(nameof(GpuModeTileColumns));
             OnPropertyChanged(nameof(IsGpuEnduranceActive));
@@ -524,6 +529,36 @@ namespace PreySense.Frontend.ViewModels
             }
         }
 
+        internal bool CanStageBiosDiscreteGpu(out string reason)
+        {
+            if (_hw is null)
+            {
+                reason = "Hardware service is unavailable.";
+                return false;
+            }
+
+            if (_hw.IsDiscreteGpuDisabled == true)
+            {
+                reason = "Cannot switch to dGPU Only while the NVIDIA GPU is disabled.";
+                return false;
+            }
+
+            if (!_hw.IsDdsAvailable || !_hw.IsDdsSupported() || _hw.GetDdsStatus() is not { IsSupported: true })
+            {
+                reason = "dGPU Only mode is blocked because this laptop does not have a supported hardware display MUX.";
+                return false;
+            }
+
+            if (_hw.GetGpuMuxMode() is not (0 or 1 or 2))
+            {
+                reason = "dGPU Only mode is blocked because firmware MUX readback is unavailable on this device.";
+                return false;
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+
         [RelayCommand]
         public async Task SetBiosDiscreteGpuAsync()
         {
@@ -539,6 +574,21 @@ namespace PreySense.Frontend.ViewModels
 
         private async Task SetBiosGpuModeAsync(int muxMode, string message, string title, string subtitle)
         {
+            if (muxMode == PreySense.Helpers.AcerWmi.GpuMux.Discrete)
+            {
+                var (allowed, reason) = await Task.Run(() =>
+                {
+                    bool ok = CanStageBiosDiscreteGpu(out string msg);
+                    return (ok, msg);
+                });
+                if (!allowed)
+                {
+                    AppLogger.Log($"[GPU MUX Safety] {reason}");
+                    DiagnosticMessage = reason;
+                    return;
+                }
+            }
+
             if (!ConfirmGpuRestart(message, title, subtitle))
                 return;
 

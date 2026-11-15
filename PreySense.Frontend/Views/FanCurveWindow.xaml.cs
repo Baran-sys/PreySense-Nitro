@@ -25,11 +25,20 @@ public partial class FanCurveWindow : Window
     private bool _gpu, _loading, _applying;
     private FanCurveProfile _profile = new();
     private CancellationTokenSource? _calibrationCts;
+    private readonly FanWindowTelemetry _fanTelemetry = new();
+    private int _fanTelemetryRevision;
     private MainViewModel? Vm => DataContext as MainViewModel;
 
     public FanCurveWindow()
     {
         InitializeComponent();
+        _fanTelemetry.SnapshotAvailable += OnFanWindowSnapshot;
+        IsVisibleChanged += (_, _) =>
+        {
+            _fanTelemetryRevision++;
+            ApplyFanReadings(TelemetrySnapshot.Empty);
+            _fanTelemetry.SetVisible(IsVisible);
+        };
         RowDuty.IsValueEnabled = false;
         Curve.Edited += (_, _) => OnCurveEdited();
         Curve.SelectionChanged += (_, _) => SyncSelectedStage();
@@ -49,12 +58,37 @@ public partial class FanCurveWindow : Window
             LoadProfile();
             UpdateCalibrationStatus();
         };
-        Closed += (_, _) => _calibrationCts?.Cancel();
+        Closed += (_, _) =>
+        {
+            _calibrationCts?.Cancel();
+            _fanTelemetryRevision++;
+            _fanTelemetry.Dispose();
+            _fanTelemetry.SnapshotAvailable -= OnFanWindowSnapshot;
+        };
         ProfileRow.AddHandler(ComboBox.SelectionChangedEvent, new SelectionChangedEventHandler(Profile_Changed));
         UseEcAutoBelowMinRow.AddHandler(System.Windows.Controls.Primitives.ToggleButton.CheckedEvent, new RoutedEventHandler(UseEcAutoBelowMin_Changed));
         UseEcAutoBelowMinRow.AddHandler(System.Windows.Controls.Primitives.ToggleButton.UncheckedEvent, new RoutedEventHandler(UseEcAutoBelowMin_Changed));
         SafeQuietIdleBaseRow.AddHandler(System.Windows.Controls.Primitives.ToggleButton.CheckedEvent, new RoutedEventHandler(SafeQuietIdleBase_Changed));
         SafeQuietIdleBaseRow.AddHandler(System.Windows.Controls.Primitives.ToggleButton.UncheckedEvent, new RoutedEventHandler(SafeQuietIdleBase_Changed));
+    }
+
+    private void OnFanWindowSnapshot(TelemetrySnapshot snapshot)
+    {
+        if (Dispatcher.HasShutdownStarted) return;
+        int revision = _fanTelemetryRevision;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (IsVisible && revision == _fanTelemetryRevision) ApplyFanReadings(snapshot);
+        });
+    }
+
+    private void ApplyFanReadings(TelemetrySnapshot snapshot)
+    {
+        var readings = FanWindowTelemetry.Format(snapshot);
+        CpuTemperatureReading.Text = readings.CpuTemperature;
+        CpuFanReading.Text = readings.CpuFan;
+        GpuTemperatureReading.Text = readings.GpuTemperature;
+        GpuFanReading.Text = readings.GpuFan;
     }
 
     private static FanCalibrationData? GetActiveCalibration()

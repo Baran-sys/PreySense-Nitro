@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Linq;
 using PreySense.Battery;
 using PreySense.Core.Services;
 using PreySense.Gpu;
@@ -9,7 +10,7 @@ using PreySense.Rgb;
 
 namespace PreySense.Frontend.Services
 {
-    public sealed class ProductionHardwareService : IHardwareService, ITelemetrySources, IDisposable
+    public sealed class ProductionHardwareService : IHardwareService, ITelemetrySources, IExtendedLightingHardware, IDisposable
     {
         private readonly WmiController _wmi;
         private readonly Lazy<CustomLightingEffectsEngine> _lightingEngine;
@@ -40,8 +41,13 @@ namespace PreySense.Frontend.Services
             {
                 var engine = new CustomLightingEffectsEngine(_wmi);
                 engine.SetIdleTimeoutSeconds(_kbdTimeoutSeconds);
+                _wmi.AttachLightingEngine(engine);
                 return engine;
             }, true);
+            // Force attach before any WMI lighting path can lazy-create a second engine.
+            _ = LightingEngine;
+            // Hardwired Acer targets: probe HID/EC once at process start, never again.
+            _ = _wmi.OemLighting.Discover();
             TelemetryCoordinator.ConfigureMetricSampler(SampleTelemetrySnapshot);
         }
 
@@ -221,6 +227,15 @@ namespace PreySense.Frontend.Services
 
         public bool SetGpuMuxMode(int muxMode)
         {
+            if (muxMode == AcerWmi.GpuMux.Discrete)
+            {
+                if (IsDiscreteGpuDisabled == true || !IsDdsAvailable || !IsDdsSupported() || GetDdsStatus() is not { IsSupported: true } || _wmi.GetGpuMuxModeWmi() is not (0 or 1 or 2))
+                {
+                    AppLogger.Log("ProductionHardwareService.SetGpuMuxMode: Blocked Discrete GPU MUX request — hardware MUX / DDS is not supported on this device.");
+                    return false;
+                }
+            }
+
             return _wmi.SetGpuMuxMode(muxMode);
         }
 
@@ -272,11 +287,23 @@ namespace PreySense.Frontend.Services
             }
         }
 
-        public bool IsRgbAvailable => _wmi.IsEnekRgbAvailable || _wmi.GetWmiObject() != null;
+        public bool IsRgbAvailable => _wmi.IsEnekRgbAvailable || _wmi.OemLighting.HasKeyboard || _wmi.GetWmiObject() != null;
+
+        public System.Collections.Generic.IReadOnlyList<LightingDeviceInfo> DiscoverLightingDevices(bool refresh = false) =>
+            _wmi.OemLighting.Discover(refresh: refresh);
+
+        public void ApplyLightingDevice(string deviceId, PreySense.Core.Configuration.DeviceLightingConfig settings)
+        {
+            if (_wmi.OemLighting.Discover().Any(d => d.Id == deviceId && d.Kind == "Keyboard") && _lightingEngine.IsValueCreated)
+                LightingEngine.StopAndWait();
+            // The view model already resolved the shared palette for the confirmed mode.
+            // Reading firmware again here can return the previous mode during a transition.
+            _wmi.OemLighting.Apply(deviceId, settings);
+        }
 
         public void SetRgbStatic(byte zone, Color color)
         {
-            LightingEngine.Stop();
+            LightingEngine.StopAndWait();
             int idx = Math.Clamp(zone - 1, 0, 3);
             Color[] colors = new Color[4];
             Array.Copy(_wmi.ZoneColors, colors, 4);
@@ -295,7 +322,7 @@ namespace PreySense.Frontend.Services
 
         public void SetRgbHardwareEffect(int mode, byte r, byte g, byte b, byte brightness, byte speed, byte direction)
         {
-            LightingEngine.Stop();
+            LightingEngine.StopAndWait();
             _wmi.SetRgbMode(mode, r, g, b, brightness, speed, direction);
         }
 
@@ -317,6 +344,7 @@ namespace PreySense.Frontend.Services
 
         public int? GetKeyboardBrightness() => _wmi.GetKeyboardBrightness();
 
+        public bool IsCoverLightingAvailable => _wmi.IsCoverLogoHidAvailable;
         public void SetCoverLogoLighting(int mode, Color color, byte brightness, byte speed, bool enabled = true)
         {
             _wmi.SetLogoLighting(mode, color.R, color.G, color.B, brightness, speed, enabled);

@@ -80,6 +80,7 @@ namespace PreySense.Core.Services
         int? GetKeyboardBrightness();
 
         // Cover / Top Logo Backlight
+        bool IsCoverLightingAvailable => false;
         void SetCoverLogoLighting(int mode, Color color, byte brightness, byte speed, bool enabled = true);
 
         // Native WMI / platform system controls

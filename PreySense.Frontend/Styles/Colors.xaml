@@ -30,6 +30,8 @@
   <Color x:Key="ControlThumbBorderColor">#EAEFF5</Color>
   <Color x:Key="ToastSurfaceColor">#D8121216</Color>
   <Color x:Key="PopupSurfaceColor">#1C1C1C</Color>
+  <Color x:Key="PopupItemHoverColor">#383838</Color>
+  <Color x:Key="PopupItemSelectedColor">#333742</Color>
   <Color x:Key="DangerColor">#E81123</Color>
   <Color x:Key="DangerPressedColor">#F1707A</Color>
   <Color x:Key="WarningColor">#E67E22</Color>
@@ -76,6 +78,8 @@
   <SolidColorBrush x:Key="ControlThumbBorderBrush" Color="{StaticResource ControlThumbBorderColor}" />
   <SolidColorBrush x:Key="ToastSurfaceBrush" Color="{StaticResource ToastSurfaceColor}" />
   <SolidColorBrush x:Key="PopupSurfaceBrush" Color="{StaticResource PopupSurfaceColor}" />
+  <SolidColorBrush x:Key="PopupItemHoverBrush" Color="{StaticResource PopupItemHoverColor}" />
+  <SolidColorBrush x:Key="PopupItemSelectedBrush" Color="{StaticResource PopupItemSelectedColor}" />
   <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource DangerColor}" />
   <SolidColorBrush x:Key="DangerPressedBrush" Color="{StaticResource DangerPressedColor}" />
   <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}" />

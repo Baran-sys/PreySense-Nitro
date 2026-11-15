@@ -81,6 +81,53 @@ public static class WindowSystemShadow
         ApplyBackdropCore(window, glass, isLight);
     }
 
+    /// <summary>
+    /// Refreshes DWM attributes and WCA Acrylic policy after a hidden window group is restored.
+    /// </summary>
+    public static void RefreshAfterRestore(Window window)
+    {
+        ApplyDwmAttributesOnly(window, ThemeManager.IsGlassEffectEnabled, ThemeManager.IsLightTheme);
+    }
+
+    /// <summary>
+    /// Applies our live WCA_ACCENT_POLICY Acrylic blur (or disables it cleanly) to a raw
+    /// WPF Popup HWND created with <c>AllowsTransparency="False"</c>.
+    /// </summary>
+    public static void ApplyPopupBackdrop(HwndSource source, bool glass, bool isLight)
+    {
+        if (source.IsDisposed || source.Handle == IntPtr.Zero)
+            return;
+
+        IntPtr hwnd = source.Handle;
+
+        if (source.CompositionTarget is { } target)
+        {
+            target.BackgroundColor = glass
+                ? Colors.Transparent
+                : (isLight ? Color.FromRgb(0xF5, 0xF6, 0xF8) : Color.FromRgb(0x1C, 0x1C, 0x1C));
+        }
+
+        var margins = glass
+            ? new Margins { Left = -1, Right = -1, Top = -1, Bottom = -1 }
+            : new Margins { Left = 0, Right = 0, Top = 0, Bottom = 1 };
+        _ = DwmExtendFrameIntoClientArea(hwnd, ref margins);
+
+        int darkMode = isLight ? 0 : 1;
+        _ = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, ref darkMode, sizeof(int));
+
+        // Clear DWMSBT so Windows 11 does not turn unfocused popups flat gray, and apply live WCA Acrylic blur.
+        int backdrop = DwmsbtNone;
+        _ = DwmSetWindowAttribute(hwnd, DwmwaSystemBackdropType, ref backdrop, sizeof(int));
+
+        ApplyAccentPolicy(hwnd, glass, isLight);
+
+        int preference = DwmWcpRound;
+        _ = DwmSetWindowAttribute(hwnd, DwmwaWindowCornerPreference, ref preference, sizeof(int));
+
+        uint borderColor = DwmwaColorNone;
+        _ = DwmSetWindowAttribute(hwnd, DwmwaBorderColor, ref borderColor, sizeof(uint));
+    }
+
     private static void ApplyBackdropCore(Window window, bool glass, bool isLight)
     {
         // AllowsTransparency disables DWM shadows and system backdrop; leave those windows alone.
@@ -140,11 +187,16 @@ public static class WindowSystemShadow
                 : (isLight ? Color.FromRgb(0xF5, 0xF6, 0xF8) : Color.FromRgb(0x1C, 0x1C, 0x1C));
         }
 
+        var margins = glass
+            ? new Margins { Left = -1, Right = -1, Top = -1, Bottom = -1 }
+            : new Margins { Left = 0, Right = 0, Top = 0, Bottom = 1 };
+        _ = DwmExtendFrameIntoClientArea(hwnd, ref margins);
+
         int darkMode = isLight ? 0 : 1;
         _ = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, ref darkMode, sizeof(int));
 
-        // Disable DWM's DWMSBT_TRANSIENTWINDOW (which turns flat gray when unfocused or toggled live)
-        // and use WCA_ACCENT_POLICY (ACCENT_ENABLE_ACRYLICBLURBEHIND) for real-time Windows 11 Start-Menu-style live blur.
+        // Disable DWMSBT_TRANSIENTWINDOW (which turns flat gray when unfocused)
+        // and use WCA_ACCENT_POLICY (ACCENT_ENABLE_ACRYLICBLURBEHIND) with deep dark tint like the Win11 Start Menu.
         int backdrop = DwmsbtNone;
         _ = DwmSetWindowAttribute(hwnd, DwmwaSystemBackdropType, ref backdrop, sizeof(int));
 
@@ -166,10 +218,9 @@ public static class WindowSystemShadow
     private static void ApplyAccentPolicy(IntPtr hwnd, bool glass, bool isLight)
     {
         // ABGR color format: 0xAABBGGRR
-        // Dark: neutral charcoal (#202020) at ~20% opacity (0x32) to match Windows 11 Start Menu live blur luminosity,
-        // allowing radiant background light and wallpaper colors to diffuse softly through the window.
-        // Light: frosted white (#F4F6FA) at ~33% opacity (0x55).
-        uint abgrTint = isLight ? 0x55FAF6F4u : 0x32202020u;
+        // Dark: pure deep obsidian (#050608) at ~33% opacity (0x55) so live acrylic blur shines through clearly without turning gray.
+        // Light: frosted white (#F4F6FA) at ~40% opacity (0x66).
+        uint abgrTint = isLight ? 0x66FAF6F4u : 0x55080605u;
         var accent = new AccentPolicy
         {
             AccentState = glass ? AccentEnableAcrylicBlurBehind : AccentDisabled,
@@ -270,6 +321,18 @@ public static class WindowSystemShadow
 
     [DllImport("user32.dll", EntryPoint = "DefWindowProcW")]
     private static extern IntPtr DefWindowProc(IntPtr hWnd, int uMsg, IntPtr wParam, IntPtr lParam);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Margins
+    {
+        public int Left;
+        public int Right;
+        public int Top;
+        public int Bottom;
+    }
+
+    [DllImport("dwmapi.dll", PreserveSig = true)]
+    private static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref Margins pMarInset);
 
     [DllImport("dwmapi.dll", PreserveSig = true)]
     private static extern int DwmSetWindowAttribute(

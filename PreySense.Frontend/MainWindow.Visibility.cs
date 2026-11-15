@@ -48,9 +48,29 @@ public partial class MainWindow
                     () =>
                     {
                         _visibilitySession.CompleteRestore(revision);
+                        // ShowInTaskbar, native restore and owner activation can replace the
+                        // compositor surface after Show; refresh the final visible window group.
+                        foreach (Window restored in Application.Current.Windows.Cast<Window>())
+                            if (restored.IsVisible) Services.WindowSystemShadow.RefreshAfterRestore(restored);
                         QueueAutoHide();
                     });
             }
+        });
+    }
+
+    private void GuardToolWindowClose()
+    {
+        if (_isExplicitExit || !IsVisible || _visibilitySession.IsHidden
+            || IsApplicationForeground(GetForegroundWindow()) != true) return;
+        // Closing an owned window briefly releases foreground before Windows activates
+        // its owner. Invalidate queued hide checks and wait for that activation handoff.
+        // Completion also runs when Closing is cancelled; no guard can remain stuck.
+        long revision = _visibilitySession.BeginRestore();
+        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, () =>
+        {
+            _visibilitySession.CompleteRestore(revision);
+            _visibilitySession.RecordForeground(IsApplicationForeground(GetForegroundWindow()));
+            QueueAutoHide();
         });
     }
 

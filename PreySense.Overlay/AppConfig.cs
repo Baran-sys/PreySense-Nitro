@@ -14,6 +14,7 @@ namespace PreySense.Overlay
             "overlay_scale_percent" => Cfg.Overlay.ScalePercent,
             "overlay_alpha" => Cfg.Overlay.BackgroundAlphaPercent,
             "overlay_text_alpha" => Cfg.Overlay.TextAlphaPercent,
+            "overlay_corner_radius" => Cfg.Overlay.CornerRadiusPixels,
             "overlay_anchor" => Cfg.Overlay.Anchor,
             "overlay_offset_x" => Cfg.Overlay.OffsetX,
             "overlay_offset_y" => Cfg.Overlay.OffsetY,
@@ -52,6 +53,9 @@ namespace PreySense.Overlay
                         break;
                     case "overlay_text_alpha":
                         cfg.Overlay.TextAlphaPercent = value;
+                        break;
+                    case "overlay_corner_radius":
+                        cfg.Overlay.CornerRadiusPixels = value;
                         break;
                     case "overlay_anchor":
                         cfg.Overlay.Anchor = value;

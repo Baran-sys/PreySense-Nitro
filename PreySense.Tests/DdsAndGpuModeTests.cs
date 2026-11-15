@@ -65,14 +65,16 @@ namespace PreySense.Tests
             var instance = NvidiaDdsService.Instance;
             Assert.IsNotNull(instance);
 
-            // Querying availability should never crash even if running in a non-NVIDIA or CI test environment
+            // Querying availability should never crash even if running in a non-NVIDIA, dGPU-only MUX, or CI test environment
             bool isAvailable = instance.IsAvailable;
             if (isAvailable)
             {
                 var status = instance.GetStatus();
-                Assert.IsNotNull(status);
-                // In live environments, verify status object was populated without throwing
-                Assert.IsTrue(status.ActiveMux is DdsActiveMux.Unknown or DdsActiveMux.Optimus or DdsActiveMux.dGPU);
+                if (status is not null)
+                {
+                    // In live DDS-active environments, verify status object was populated without throwing
+                    Assert.IsTrue(status.ActiveMux is DdsActiveMux.Unknown or DdsActiveMux.Optimus or DdsActiveMux.dGPU);
+                }
             }
         }
 
@@ -233,6 +235,76 @@ namespace PreySense.Tests
             Assert.AreEqual(0, hw.SetGpuMuxModeCallCount);
             Assert.IsTrue(vm.IsBiosDiscreteGpuActive);
             Assert.IsTrue(hw.GetDdsStatus()!.IsAutomatic);
+        }
+
+        [TestMethod]
+        public async System.Threading.Tasks.Task Test_UnsupportedDdsDevice_HidesDgpuOnlyTile_And_BlocksSetBiosDiscreteGpuAsync()
+        {
+            var hw = new UnsupportedMuxHardware { DdsAvailable = false, DdsSupported = false, FirmwareMuxMode = 1 };
+            var vm = new PreySense.Frontend.ViewModels.MainViewModel(hw);
+
+            Assert.IsFalse(vm.IsBiosDiscreteGpuActive);
+            Assert.AreEqual(-1, vm.ActiveGpuMuxMode);
+            Assert.IsFalse(vm.IsDgpuOnlySupported);
+            Assert.IsFalse(vm.ShowDgpuOnlyTile);
+
+            await vm.SetBiosDiscreteGpuAsync();
+
+            Assert.AreEqual(0, hw.SetGpuMuxModeCallCount);
+            Assert.Contains("dGPU Only mode is blocked", vm.DiagnosticMessage);
+        }
+
+        [TestMethod]
+        [DataRow(true, false)]
+        [DataRow(false, true)]
+        public async System.Threading.Tasks.Task Test_SetBiosDiscreteGpuAsync_BlockedWhenFirmwareMuxReadbackIsNullOrGpuDisabled(
+            bool firmwareReturnsNull, bool gpuDisabled)
+        {
+            var hw = new UnsupportedMuxHardware
+            {
+                DdsAvailable = true,
+                DdsSupported = true,
+                FirmwareMuxMode = firmwareReturnsNull ? null : 1,
+                IsDiscreteGpuDisabled = gpuDisabled
+            };
+            var vm = new PreySense.Frontend.ViewModels.MainViewModel(hw);
+
+            await vm.SetBiosDiscreteGpuAsync();
+
+            Assert.AreEqual(0, hw.SetGpuMuxModeCallCount);
+            Assert.IsFalse(string.IsNullOrEmpty(vm.DiagnosticMessage));
+        }
+
+        [TestMethod]
+        public void Test_WmiController_BlocksGpuMuxDiscrete_WhenFirmwareMuxReadbackIsNull()
+        {
+            using var wmi = new WmiController();
+            int setCalls = 0;
+            wmi.CommandOverride = (method, input) =>
+            {
+                if (method == AcerWmi.GamingMethods.GetMiscSetting)
+                    return (true, 0x0001); // Non-zero low status byte -> invalid / unsupported
+                if (method == AcerWmi.GamingMethods.SetMiscSetting)
+                    setCalls++;
+                return (true, 0);
+            };
+
+            Assert.IsFalse(wmi.SetGpuMuxMode(WmiController.GpuMuxDiscrete));
+            Assert.AreEqual(0, setCalls);
+        }
+
+        private sealed class UnsupportedMuxHardware : MockHardwareService, IHardwareService
+        {
+            public bool DdsAvailable { get; init; } = true;
+            public bool DdsSupported { get; init; } = true;
+            public int? FirmwareMuxMode { get; init; } = 1;
+
+            public new bool IsDdsAvailable => DdsAvailable;
+            public new bool IsDdsSupported() => DdsSupported;
+            public new DdsStatus? GetDdsStatus() => DdsSupported
+                ? new DdsStatus(true, true, DdsActiveMux.Optimus, 0, 0)
+                : new DdsStatus(false, false, DdsActiveMux.Unknown, 0, 0);
+            public new int? GetGpuMuxMode() => FirmwareMuxMode;
         }
     }
 }

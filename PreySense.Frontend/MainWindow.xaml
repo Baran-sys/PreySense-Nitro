@@ -231,7 +231,7 @@
                   <TextBlock Text="Advanced Optimus" FontSize="{DynamicResource FontSizeTile}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
                 </StackPanel>
               </Button>
-              <Button Height="52" Margin="2.5" Command="{Binding SetBiosDiscreteGpuCommand}" Visibility="{Binding ShowDgpuOnlyTile, Converter={StaticResource BoolToVis}}"
+              <Button Height="52" Margin="2.5" Command="{Binding SetBiosDiscreteGpuCommand}" Visibility="{Binding ShowDgpuOnlyTile, Converter={StaticResource BoolToVis}}" IsEnabled="{Binding IsDgpuOnlySupported}"
                       ToolTip="Switch the firmware MUX exclusively to the discrete NVIDIA GPU and bypass iGPU (requires restart).">
                 <Button.Style>
                   <Style BasedOn="{StaticResource OriginalRButtonActionStyle}" TargetType="{x:Type Button}">
@@ -332,12 +332,19 @@
             </StackPanel>
           </Button>
         </UniformGrid>
-        <UniformGrid Grid.Row="2" Columns="2" HorizontalAlignment="Stretch">
+        <UniformGrid Grid.Row="2" Columns="3" HorizontalAlignment="Stretch">
           <Button AutomationProperties.AutomationId="BtnNavMode" Style="{StaticResource WindowFooterButtonStyle}" Click="ModeSettingsButton_Click"
                   ToolTip="Tune CPU boost, power limits (PL1/PL2), PROCHOT, Smart Boost, and GPU clocks/power.">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
               <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-processor-32.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
               <TextBlock Text="Tuning" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button AutomationProperties.AutomationId="BtnNavGames" Style="{StaticResource WindowFooterButtonStyle}" Click="GamesButton_Click"
+                  ToolTip="Configure automatic per-game performance modes, CPU boost, and GPU power limits.">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+              <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-game-controller-48.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
+              <TextBlock Text="Games" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
           <Button AutomationProperties.AutomationId="BtnNavQuit" Style="{StaticResource WindowFooterButtonStyle}" Click="QuitButton_Click"

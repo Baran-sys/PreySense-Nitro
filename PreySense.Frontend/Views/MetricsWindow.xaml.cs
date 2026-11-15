@@ -10,6 +10,7 @@ using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Threading;
 using PreySense.Core.Configuration;
+using PreySense.Core.Services;
 using PreySense.Frontend.Controls;
 using PreySense.Frontend.Services;
 using PreySense.Overlay;
@@ -109,19 +110,55 @@ namespace PreySense.Frontend.Views
         int scalePercent = Math.Clamp((int)Math.Round(savedScalePercent / 5.0) * 5, 50, 200);
         int backgroundOpacityPercent = NormalizeSavedOpacity(AppConfig.Get("overlay_alpha", 50));
         int textOpacityPercent = NormalizeSavedOpacity(AppConfig.Get("overlay_text_alpha", 100));
+        int cornerRadius = Math.Clamp(AppConfig.Get("overlay_corner_radius", 6), 0, 16);
 
+        DropdownOverlayTheme.SelectedIndex = (int)ConfigurationService.Instance.GetCurrent().Overlay.Theme;
         CheckEnableOverlay.IsChecked = overlayEnabled;
         CheckShowFps.IsChecked = showFps;
         SliderHudScale.Value = scalePercent;
         SliderOpacity.Value = backgroundOpacityPercent;
         SliderTextOpacity.Value = textOpacityPercent;
+        SliderCornerRadius.Value = cornerRadius;
         LabelHudScale.Text = $"{scalePercent}%";
         LabelOpacity.Text = $"{backgroundOpacityPercent}%";
         LabelTextOpacity.Text = $"{textOpacityPercent}%";
+        LabelCornerRadius.Text = $"{cornerRadius} px";
         DropdownHorizontalPos.ItemsSource = HorizontalPositions;
         DropdownVerticalPos.ItemsSource = VerticalPositions;
         DropdownHorizontalPos.SelectedItem = AppConfig.GetString("overlay_pos_horizontal", "Left");
         DropdownVerticalPos.SelectedItem = AppConfig.GetString("overlay_pos_vertical", "Top");
+    }
+
+    private void OverlayTheme_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing || DropdownOverlayTheme.SelectedIndex < 0) return;
+        var theme = (OverlayTheme)DropdownOverlayTheme.SelectedIndex;
+        // Re-selecting the same theme must not wipe hand-edited colors/opacity.
+        if (theme == ConfigurationService.Instance.GetCurrent().Overlay.Theme) return;
+        _isInitializing = true;
+        try
+        {
+            ConfigurationService.Instance.Update(config => config.Overlay.ApplyTheme(theme));
+            LoadSettings();
+            HardwareOverlayManager.RefreshDisplayFlags();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error($"Could not apply overlay theme: {ex}");
+            LoadSettings();
+            if (IsLoaded)
+            {
+                new CustomModalDialog
+                {
+                    Owner = this,
+                    HeaderSubtitle = LocalizationService.Translate("Overlay"),
+                    Message = ex.Message,
+                    ConfirmText = LocalizationService.Translate("OK"),
+                    ShowCancelButton = false
+                }.ShowDialog();
+            }
+        }
+        finally { _isInitializing = false; }
     }
 
     // Older preferences store opacity as an alpha byte; current preferences use percent.
@@ -387,6 +424,26 @@ namespace PreySense.Frontend.Views
 	{
 		AppConfig.Set("overlay_alpha", value);
 		HardwareOverlayManager.RefreshDisplayFlags();
+	}
+
+	private void SliderCornerRadius_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+	{
+		if (LabelCornerRadius == null)
+		{
+			return;
+		}
+		int value = Math.Clamp((int)Math.Round(SliderCornerRadius.Value), 0, 16);
+		if (Math.Abs(SliderCornerRadius.Value - value) > 0.01)
+		{
+			SliderCornerRadius.Value = value;
+			return;
+		}
+		LabelCornerRadius.Text = $"{value} px";
+		if (!_isInitializing)
+		{
+			AppConfig.Set("overlay_corner_radius", value);
+			HardwareOverlayManager.RefreshDisplayFlags();
+		}
 	}
 }
 }

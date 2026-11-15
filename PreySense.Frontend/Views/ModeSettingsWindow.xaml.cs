@@ -65,6 +65,7 @@ namespace PreySense.Frontend.Views
             {
                 vm.PropertyChanged -= OnTuningVmPropertyChanged;
                 vm.PropertyChanged += OnTuningVmPropertyChanged;
+                vm.RefreshGpuTuningAvailability();
                 await vm.RefreshProchotLockStateAsync();
             }
             SyncFromViewModel();
@@ -73,7 +74,10 @@ namespace PreySense.Frontend.Views
         private void OnTuningVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(MainViewModel.IsHardwareTuningEnabled) && IsLoaded)
+            {
+                _drafts.Clear();
                 LoadModeData();
+            }
             else if (e.PropertyName == nameof(MainViewModel.IsProchotOffsetEnabled) && !_isUpdatingUi)
             {
                 if (SwitchProchotOffset != null &&
