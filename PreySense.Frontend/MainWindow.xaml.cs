@@ -19,7 +19,12 @@ namespace PreySense.Frontend
         private Window? _lastActiveWindow;
         private ForegroundWindowEvents? _windowActivityEvents;
 
-        public MainWindow()
+        public MainWindow() => InitializeMainWindow(hardwareOverride: null);
+
+        internal MainWindow(IHardwareService hardwareService) =>
+            InitializeMainWindow(hardwareOverride: hardwareService ?? throw new ArgumentNullException(nameof(hardwareService)));
+
+        private void InitializeMainWindow(IHardwareService? hardwareOverride)
         {
             InitializeComponent();
             Activated += (_, _) =>
@@ -45,35 +50,48 @@ namespace PreySense.Frontend
             var helper = new System.Windows.Interop.WindowInteropHelper(this);
             IntPtr hWnd = helper.EnsureHandle();
 
-            bool initialTrayVisible = true;
-            try
+            bool isTestHost = hardwareOverride is MockHardwareService;
+            if (!isTestHost)
             {
-                initialTrayVisible = !PreySense.Core.Configuration.ConfigurationService.Instance.GetCurrent().General.DisableTrayIcon;
-            }
-            catch { }
+                bool initialTrayVisible = true;
+                try
+                {
+                    initialTrayVisible = !PreySense.Core.Configuration.ConfigurationService.Instance.GetCurrent().General.DisableTrayIcon;
+                }
+                catch { }
 
-            _trayIconManager = new Services.TrayIconManager(hWnd, onOpen: ShowAndRestore, onQuit: QuitApplication, initiallyVisible: initialTrayVisible);
-            var source = System.Windows.Interop.HwndSource.FromHwnd(hWnd);
-            source?.AddHook(_trayIconManager.WndProc);
-            try { _hidArrivalWatcher = new Services.HidDeviceArrivalWatcher(hWnd); } catch { }
+                _trayIconManager = new Services.TrayIconManager(hWnd, onOpen: ShowAndRestore, onQuit: QuitApplication, initiallyVisible: initialTrayVisible);
+                var source = System.Windows.Interop.HwndSource.FromHwnd(hWnd);
+                source?.AddHook(_trayIconManager.WndProc);
+                try { _hidArrivalWatcher = new Services.HidDeviceArrivalWatcher(hWnd); } catch { }
+            }
 
             IHardwareService hw;
-            try
+            if (hardwareOverride is not null)
             {
-                hw = new ProductionHardwareService();
+                hw = hardwareOverride;
             }
-            catch (Exception ex)
+            else
             {
-                System.IO.File.WriteAllText("hw_init.log", ex.ToString());
-                hw = new MockHardwareService();
+                try
+                {
+                    hw = new ProductionHardwareService();
+                }
+                catch (Exception ex)
+                {
+                    System.IO.File.WriteAllText("hw_init.log", ex.ToString());
+                    hw = new MockHardwareService();
+                }
             }
 
             var vm = new MainViewModel(hw);
-            vm.TrayIconVisibilityHandler = visible => _trayIconManager?.SetVisible(visible);
+            if (!isTestHost)
+                vm.TrayIconVisibilityHandler = visible => _trayIconManager?.SetVisible(visible);
             DataContext = vm;
             ApplyResponsivePercentageSize();
 
             // Setup Predator Sense Key & Combos
+            if (!isTestHost)
             try
             {
                 _keyboardHook = new Services.KeyboardHook(

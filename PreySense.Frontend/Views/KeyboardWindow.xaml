@@ -149,8 +149,8 @@
                                              Margin="{StaticResource StandardSectionMargin}"
                                              LeftText="Keyboard"
                                              RightText="Logo"
-                                             LeftIcon="pack://application:,,,/Resources/icons8-keyboard-32.png"
-                                             RightIcon="pack://application:,,,/Resources/icons8-laptop-32.png"
+                                             LeftIcon="pack://application:,,,/PreySense;component/Resources/icons8-keyboard-32.png"
+                                             RightIcon="pack://application:,,,/PreySense;component/Resources/icons8-laptop-32.png"
                                              SelectedIndex="{Binding SelectedLightingTab, Mode=TwoWay}"/>
 
                 <!-- Single EC keyboard idle timeout (no separate Cover Logo timeout). -->
@@ -159,7 +159,7 @@
                     <StackPanel>
                         <Grid Style="{StaticResource OriginalSectionTitlePanelStyle}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-controls-32.png" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-controls-32.png" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="Backlight Timeout" Style="{StaticResource OriginalSectionTitleStyle}"/>
                             </StackPanel>
                             <TextBlock Text="{Binding KbdTimeoutDisplay}" HorizontalAlignment="Right" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -215,7 +215,7 @@
                     <StackPanel>
                         <Grid Style="{StaticResource OriginalSectionTitlePanelStyle}" Margin="0,0,0,2">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-brightness-32.png" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-brightness-32.png" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="Brightness" Style="{StaticResource OriginalSectionTitleStyle}"/>
                             </StackPanel>
                             <TextBlock Text="{Binding RgbBrightness, StringFormat='{}{0}%'}" HorizontalAlignment="Right" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -359,7 +359,7 @@
                                 </Grid.RowDefinitions>
                                 <Grid Grid.Row="0" Margin="0,8,0,0">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-animation-32.png" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                        <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-animation-32.png" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                         <TextBlock Text="Animation Speed" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                     </StackPanel>
                                     <TextBlock Text="{Binding KeyboardAnimationSpeedLevel}" HorizontalAlignment="Right" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -409,7 +409,7 @@
                                 </Grid.RowDefinitions>
                                 <Grid Grid.Row="0" Margin="0,8,0,0">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-animation-32.png" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                        <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-animation-32.png" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                         <TextBlock Text="Animation Speed" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                     </StackPanel>
                                     <TextBlock Text="{Binding RgbSpeed}" HorizontalAlignment="Right" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -475,7 +475,7 @@
                         <StackPanel>
                             <Grid Style="{StaticResource OriginalSectionTitlePanelStyle}" Margin="0,0,0,2">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-brightness-32.png" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-brightness-32.png" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="Brightness" Style="{StaticResource OriginalSectionTitleStyle}"/>
                                 </StackPanel>
                                 <TextBlock Text="{Binding CoverBrightness, StringFormat='{}{0}%'}" HorizontalAlignment="Right" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -570,7 +570,7 @@
                         <StackPanel>
                             <Grid Style="{StaticResource OriginalSectionTitlePanelStyle}" Margin="0,0,0,2">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-animation-32.png" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-animation-32.png" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="Animation Speed" Style="{StaticResource OriginalSectionTitleStyle}"/>
                                 </StackPanel>
                                 <TextBlock Text="{Binding LogoAnimationSpeedLevel}" HorizontalAlignment="Right" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -629,7 +629,7 @@
                         <StackPanel>
                             <Grid Style="{StaticResource OriginalSectionTitlePanelStyle}" Margin="0,0,0,2">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-brightness-32.png" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-brightness-32.png" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="Brightness" Style="{StaticResource OriginalSectionTitleStyle}"/>
                                 </StackPanel>
                                 <TextBlock Text="{Binding DeviceLightingBrightness, StringFormat='{}{0}%'}" HorizontalAlignment="Right" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -649,7 +649,7 @@
                         <StackPanel>
                             <Grid Style="{StaticResource OriginalSectionTitlePanelStyle}" Margin="0,0,0,2">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-animation-32.png" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-animation-32.png" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="Animation Speed" Style="{StaticResource OriginalSectionTitleStyle}"/>
                                 </StackPanel>
                                 <TextBlock Text="{Binding DeviceLightingSpeedLevel}" HorizontalAlignment="Right" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>

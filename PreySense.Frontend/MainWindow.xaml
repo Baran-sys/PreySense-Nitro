@@ -11,7 +11,7 @@
         <controls:WindowTitleBar.Actions>
           <Button AutomationProperties.AutomationId="BtnSettings" Style="{StaticResource TitleBarButtonStyle}" Click="SettingsButton_Click"
                   ToolTip="Open application settings, language, theme, and power preferences.">
-            <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-settings-32.png" Width="14" Height="14" />
+            <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-settings-32.png" Width="14" Height="14" />
           </Button>
         </controls:WindowTitleBar.Actions>
       </controls:WindowTitleBar>
@@ -24,7 +24,7 @@
                 <ColumnDefinition Width="Auto"/>
               </Grid.ColumnDefinitions>
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-gauge-32.png" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
+                <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-gauge-32.png" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
                 <TextBlock Text="Performance Mode" Style="{StaticResource OriginalSectionTitleStyle}" />
               </StackPanel>
               <TextBlock Grid.Column="1" Style="{StaticResource OriginalStatusTextStyle}"
@@ -137,7 +137,7 @@
                 <ColumnDefinition Width="Auto"/>
               </Grid.ColumnDefinitions>
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-video-card-32.png" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
+                <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-video-card-32.png" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
                 <TextBlock Text="GPU Mode" Style="{StaticResource OriginalSectionTitleStyle}" />
               </StackPanel>
               <TextBlock Grid.Column="1" Style="{StaticResource OriginalStatusTextStyle}"
@@ -163,7 +163,7 @@
                   </Style>
                 </FrameworkElement.Style>
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-automation-32.png" Width="20" Height="20" Margin="0,0,0,2" />
+                  <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-automation-32.png" Width="20" Height="20" Margin="0,0,0,2" />
                   <TextBlock Text="Auto" FontSize="{DynamicResource FontSizeTile}" HorizontalAlignment="Center" TextAlignment="Center" />
                 </StackPanel>
               </Button>
@@ -181,7 +181,7 @@
                   </Style>
                 </FrameworkElement.Style>
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-video-48.png" Width="20" Height="20" Margin="0,0,0,2" />
+                  <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-video-48.png" Width="20" Height="20" Margin="0,0,0,2" />
                   <TextBlock Text="iGPU Only" FontSize="{DynamicResource FontSizeTile}" HorizontalAlignment="Center" TextAlignment="Center" />
                 </StackPanel>
               </Button>
@@ -227,7 +227,7 @@
                   </Style>
                 </FrameworkElement.Style>
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-game-controller-48.png" Width="20" Height="20" Margin="0,0,0,2" />
+                  <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-game-controller-48.png" Width="20" Height="20" Margin="0,0,0,2" />
                   <TextBlock Text="Advanced Optimus" FontSize="{DynamicResource FontSizeTile}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
                 </StackPanel>
               </Button>
@@ -245,7 +245,7 @@
                   </Style>
                 </Button.Style>
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-video-card-32.png" Width="20" Height="20" Margin="0,0,0,2" />
+                  <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-video-card-32.png" Width="20" Height="20" Margin="0,0,0,2" />
                   <TextBlock Text="dGPU Only" FontSize="{DynamicResource FontSizeTile}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
                 </StackPanel>
               </Button>
@@ -260,7 +260,7 @@
                 <ColumnDefinition Width="Auto"/>
               </Grid.ColumnDefinitions>
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-laptop-32.png" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
+                <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-laptop-32.png" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
                 <TextBlock Text="Display" Style="{StaticResource OriginalSectionTitleStyle}" />
               </StackPanel>
               <TextBlock Grid.Column="1" Text="{Binding ActiveGpuDisplayMode, Mode=OneWay}"
@@ -313,21 +313,21 @@
           <Button AutomationProperties.AutomationId="BtnNavLighting" Style="{StaticResource WindowFooterButtonStyle}" Click="KeyboardButton_Click"
                   ToolTip="Customize keyboard zones, dynamic effects, and lid logo lighting.">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-              <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-color-32.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
+              <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-color-32.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
               <TextBlock Text="Lighting" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
           <Button AutomationProperties.AutomationId="BtnNavMetrics" Style="{StaticResource WindowFooterButtonStyle}" Click="MetricsButton_Click"
                   ToolTip="Configure the in-game hardware monitoring HUD overlay and metric slots.">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-              <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-soonvibes-32.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
+              <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-soonvibes-32.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
               <TextBlock Text="Overlay" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
           <Button AutomationProperties.AutomationId="BtnNavFans" Style="{StaticResource WindowFooterButtonStyle}" Click="FansButton_Click"
                   ToolTip="Calibrate fans, edit custom RPM curves, and tune ramp/hysteresis behavior.">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-              <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-fan-32.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
+              <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-fan-32.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
               <TextBlock Text="Fans" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
@@ -336,21 +336,21 @@
           <Button AutomationProperties.AutomationId="BtnNavMode" Style="{StaticResource WindowFooterButtonStyle}" Click="ModeSettingsButton_Click"
                   ToolTip="Tune CPU boost, power limits (PL1/PL2), PROCHOT, Smart Boost, and GPU clocks/power.">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-              <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-processor-32.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
+              <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-processor-32.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
               <TextBlock Text="Tuning" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
           <Button AutomationProperties.AutomationId="BtnNavGames" Style="{StaticResource WindowFooterButtonStyle}" Click="GamesButton_Click"
                   ToolTip="Configure automatic per-game performance modes, CPU boost, and GPU power limits.">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-              <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-game-controller-48.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
+              <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-game-controller-48.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
               <TextBlock Text="Games" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
           <Button AutomationProperties.AutomationId="BtnNavQuit" Style="{StaticResource WindowFooterButtonStyle}" Click="QuitButton_Click"
                   ToolTip="Close PreySense completely and restore default GPU clocks.">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-              <controls:ThemedIcon Source="pack://application:,,,/Resources/icons8-quit-32.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
+              <controls:ThemedIcon Source="pack://application:,,,/PreySense;component/Resources/icons8-quit-32.png" Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center" />
               <TextBlock Text="Quit" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
             </StackPanel>
           </Button>

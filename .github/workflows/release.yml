@@ -39,6 +39,12 @@ jobs:
         shell: pwsh
         run: ./.github/publish.ps1
 
+      - name: Verify published single-file bundle
+        shell: pwsh
+        run: |
+          dotnet test PreySense.Tests/PreySense.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~ReleasePackagingAndStartupTests"
+          if ($LASTEXITCODE -ne 0) { throw 'Published single-file verification failed.' }
+
       - name: Read tag message
         id: notes
         shell: pwsh

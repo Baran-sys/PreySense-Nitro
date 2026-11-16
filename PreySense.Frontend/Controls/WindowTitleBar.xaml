@@ -16,7 +16,7 @@
         </Grid.ColumnDefinitions>
 
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
-            <Image Source="pack://application:,,,/appicon.ico" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"/>
+            <Image Source="pack://application:,,,/PreySense;component/appicon.ico" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"/>
             <TextBlock Text="PreySense" Style="{DynamicResource WindowTitleTextStyle}"/>
             <TextBlock x:Name="TitleText" Style="{DynamicResource WindowSubtitleTextStyle}"/>
             <TextBlock x:Name="SubtitleText" Style="{DynamicResource WindowSubtitleTextStyle}"/>

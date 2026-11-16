@@ -107,25 +107,32 @@ public static class WindowSystemShadow
                 : (isLight ? Color.FromRgb(0xF5, 0xF6, 0xF8) : Color.FromRgb(0x1C, 0x1C, 0x1C));
         }
 
-        var margins = glass
-            ? new Margins { Left = -1, Right = -1, Top = -1, Bottom = -1 }
-            : new Margins { Left = 0, Right = 0, Top = 0, Bottom = 1 };
-        _ = DwmExtendFrameIntoClientArea(hwnd, ref margins);
+        try
+        {
+            var margins = glass
+                ? new Margins { Left = -1, Right = -1, Top = -1, Bottom = -1 }
+                : new Margins { Left = 0, Right = 0, Top = 0, Bottom = 1 };
+            _ = DwmExtendFrameIntoClientArea(hwnd, ref margins);
 
-        int darkMode = isLight ? 0 : 1;
-        _ = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, ref darkMode, sizeof(int));
+            int darkMode = isLight ? 0 : 1;
+            _ = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, ref darkMode, sizeof(int));
 
-        // Clear DWMSBT so Windows 11 does not turn unfocused popups flat gray, and apply live WCA Acrylic blur.
-        int backdrop = DwmsbtNone;
-        _ = DwmSetWindowAttribute(hwnd, DwmwaSystemBackdropType, ref backdrop, sizeof(int));
+            // Clear DWMSBT so Windows 11 does not turn unfocused popups flat gray, and apply live WCA Acrylic blur.
+            int backdrop = DwmsbtNone;
+            _ = DwmSetWindowAttribute(hwnd, DwmwaSystemBackdropType, ref backdrop, sizeof(int));
 
-        ApplyAccentPolicy(hwnd, glass, isLight);
+            ApplyAccentPolicy(hwnd, glass, isLight);
 
-        int preference = DwmWcpRound;
-        _ = DwmSetWindowAttribute(hwnd, DwmwaWindowCornerPreference, ref preference, sizeof(int));
+            int preference = DwmWcpRound;
+            _ = DwmSetWindowAttribute(hwnd, DwmwaWindowCornerPreference, ref preference, sizeof(int));
 
-        uint borderColor = DwmwaColorNone;
-        _ = DwmSetWindowAttribute(hwnd, DwmwaBorderColor, ref borderColor, sizeof(uint));
+            uint borderColor = DwmwaColorNone;
+            _ = DwmSetWindowAttribute(hwnd, DwmwaBorderColor, ref borderColor, sizeof(uint));
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or COMException)
+        {
+            AppLogger.Error($"ApplyPopupBackdrop skipped unsupported DWM call: {ex.Message}");
+        }
     }
 
     private static void ApplyBackdropCore(Window window, bool glass, bool isLight)
@@ -187,32 +194,39 @@ public static class WindowSystemShadow
                 : (isLight ? Color.FromRgb(0xF5, 0xF6, 0xF8) : Color.FromRgb(0x1C, 0x1C, 0x1C));
         }
 
-        var margins = glass
-            ? new Margins { Left = -1, Right = -1, Top = -1, Bottom = -1 }
-            : new Margins { Left = 0, Right = 0, Top = 0, Bottom = 1 };
-        _ = DwmExtendFrameIntoClientArea(hwnd, ref margins);
+        try
+        {
+            var margins = glass
+                ? new Margins { Left = -1, Right = -1, Top = -1, Bottom = -1 }
+                : new Margins { Left = 0, Right = 0, Top = 0, Bottom = 1 };
+            _ = DwmExtendFrameIntoClientArea(hwnd, ref margins);
 
-        int darkMode = isLight ? 0 : 1;
-        _ = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, ref darkMode, sizeof(int));
+            int darkMode = isLight ? 0 : 1;
+            _ = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, ref darkMode, sizeof(int));
 
-        // Disable DWMSBT_TRANSIENTWINDOW (which turns flat gray when unfocused)
-        // and use WCA_ACCENT_POLICY (ACCENT_ENABLE_ACRYLICBLURBEHIND) with deep dark tint like the Win11 Start Menu.
-        int backdrop = DwmsbtNone;
-        _ = DwmSetWindowAttribute(hwnd, DwmwaSystemBackdropType, ref backdrop, sizeof(int));
+            // Disable DWMSBT_TRANSIENTWINDOW (which turns flat gray when unfocused)
+            // and use WCA_ACCENT_POLICY (ACCENT_ENABLE_ACRYLICBLURBEHIND) with deep dark tint like the Win11 Start Menu.
+            int backdrop = DwmsbtNone;
+            _ = DwmSetWindowAttribute(hwnd, DwmwaSystemBackdropType, ref backdrop, sizeof(int));
 
-        ApplyAccentPolicy(hwnd, glass, isLight);
+            ApplyAccentPolicy(hwnd, glass, isLight);
 
-        // Win11: round the HWND like a normal app window (~8px). Ignored on older OS builds.
-        int preference = DwmWcpRound;
-        _ = DwmSetWindowAttribute(hwnd, DwmwaWindowCornerPreference, ref preference, sizeof(int));
+            // Win11: round the HWND like a normal app window (~8px). Ignored on older OS builds.
+            int preference = DwmWcpRound;
+            _ = DwmSetWindowAttribute(hwnd, DwmwaWindowCornerPreference, ref preference, sizeof(int));
 
-        // Hide the system 1px border (same look as matching border to window background).
-        uint borderColor = DwmwaColorNone;
-        _ = DwmSetWindowAttribute(hwnd, DwmwaBorderColor, ref borderColor, sizeof(uint));
+            // Hide the system 1px border (same look as matching border to window background).
+            uint borderColor = DwmwaColorNone;
+            _ = DwmSetWindowAttribute(hwnd, DwmwaBorderColor, ref borderColor, sizeof(uint));
 
-        // Ensure native Windows DWM open/close transitions are explicitly enabled.
-        int disableTransitions = 0;
-        _ = DwmSetWindowAttribute(hwnd, DwmwaTransitionsForcedDisabled, ref disableTransitions, sizeof(int));
+            // Ensure native Windows DWM open/close transitions are explicitly enabled.
+            int disableTransitions = 0;
+            _ = DwmSetWindowAttribute(hwnd, DwmwaTransitionsForcedDisabled, ref disableTransitions, sizeof(int));
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or COMException)
+        {
+            AppLogger.Error($"ApplyDwmAttributesOnly skipped unsupported DWM call: {ex.Message}");
+        }
     }
 
     private static void ApplyAccentPolicy(IntPtr hwnd, bool glass, bool isLight)
@@ -241,6 +255,10 @@ public static class WindowSystemShadow
                 SizeOfData = size
             };
             _ = SetWindowCompositionAttribute(hwnd, ref data);
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
+        {
+            AppLogger.Error($"ApplyAccentPolicy skipped unavailable user32 API: {ex.Message}");
         }
         finally
         {
