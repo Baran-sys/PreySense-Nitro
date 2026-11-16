@@ -276,6 +276,7 @@ namespace PreySense.Frontend.ViewModels
             }
             catch { }
             try { IsBiosDiscreteGpuActive = _hw.IsBiosDiscreteGpuActive; } catch { }
+            try { IsFirmwareGpuMuxSupported = _hw.GetGpuMuxMode() is 0 or 1 or 2; } catch { }
             InitializeRefreshRates();
         }
 
@@ -287,6 +288,7 @@ namespace PreySense.Frontend.ViewModels
                 int? liveDdsMode = null;
                 DdsStatus? liveDdsStatus = null;
                 bool? biosDiscrete = null;
+                bool? firmwareMuxSupported = null;
                 bool? igpuOnly = null;
                 System.Collections.Generic.List<int>? rates = null;
                 int refreshRate = 0;
@@ -302,6 +304,7 @@ namespace PreySense.Frontend.ViewModels
                 }
                 catch { }
                 try { biosDiscrete = _hw.IsBiosDiscreteGpuActive; } catch { }
+                try { firmwareMuxSupported = _hw.GetGpuMuxMode() is 0 or 1 or 2; } catch { }
                 try { igpuOnly = _hw.IsDiscreteGpuDisabled; } catch { }
                 try
                 {
@@ -309,7 +312,7 @@ namespace PreySense.Frontend.ViewModels
                     refreshRate = _hw.GetDisplayRefreshRate();
                 }
                 catch { }
-                return (liveDdsMode, liveDdsStatus, biosDiscrete, igpuOnly, rates, refreshRate);
+                return (liveDdsMode, liveDdsStatus, biosDiscrete, firmwareMuxSupported, igpuOnly, rates, refreshRate);
             });
 
             if (_disposed) return;
@@ -324,6 +327,8 @@ namespace PreySense.Frontend.ViewModels
                 }
                 if (result.biosDiscrete.HasValue)
                     IsBiosDiscreteGpuActive = result.biosDiscrete.Value;
+                if (result.firmwareMuxSupported.HasValue)
+                    IsFirmwareGpuMuxSupported = result.firmwareMuxSupported.Value;
                 IsGpuIgpuOnlyActive = result.igpuOnly == true && !IsBiosDiscreteGpuActive;
                 if (IsGpuIgpuOnlyActive)
                 {

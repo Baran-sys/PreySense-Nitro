@@ -234,9 +234,9 @@ namespace PreySense.Frontend.Services
         {
             if (muxMode == AcerWmi.GpuMux.Discrete)
             {
-                if (IsDiscreteGpuDisabled == true || !IsDdsAvailable || !IsDdsSupported() || GetDdsStatus() is not { IsSupported: true } || _wmi.GetGpuMuxModeWmi() is not (0 or 1 or 2))
+                if (IsDiscreteGpuDisabled == true || _wmi.GetGpuMuxModeWmi() is not (0 or 1 or 2))
                 {
-                    AppLogger.Log("ProductionHardwareService.SetGpuMuxMode: Blocked Discrete GPU MUX request — hardware MUX / DDS is not supported on this device.");
+                    AppLogger.Log("ProductionHardwareService.SetGpuMuxMode: Blocked Discrete GPU MUX request — firmware MUX is not supported on this device.");
                     return false;
                 }
             }

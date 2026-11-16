@@ -238,13 +238,28 @@ namespace PreySense.Tests
         }
 
         [TestMethod]
-        public async System.Threading.Tasks.Task Test_UnsupportedDdsDevice_HidesDgpuOnlyTile_And_BlocksSetBiosDiscreteGpuAsync()
+        public void Test_BiosMuxWithoutDds_ShowsDgpuOnlyTile_And_AllowsCanStageBiosDiscreteGpu()
         {
             var hw = new UnsupportedMuxHardware { DdsAvailable = false, DdsSupported = false, FirmwareMuxMode = 1 };
             var vm = new PreySense.Frontend.ViewModels.MainViewModel(hw);
 
             Assert.IsFalse(vm.IsBiosDiscreteGpuActive);
             Assert.AreEqual(-1, vm.ActiveGpuMuxMode);
+            Assert.IsTrue(vm.IsFirmwareGpuMuxSupported);
+            Assert.IsTrue(vm.IsDgpuOnlySupported, "Laptops with BIOS firmware MUX must show dGPU Only even without NVIDIA DDS/Advanced Optimus.");
+            Assert.IsTrue(vm.ShowDgpuOnlyTile);
+            Assert.IsTrue(vm.CanStageBiosDiscreteGpu(out _));
+        }
+
+        [TestMethod]
+        public async System.Threading.Tasks.Task Test_UnsupportedFirmwareMuxDevice_HidesDgpuOnlyTile_And_BlocksSetBiosDiscreteGpuAsync()
+        {
+            var hw = new UnsupportedMuxHardware { DdsAvailable = false, DdsSupported = false, FirmwareMuxMode = null };
+            var vm = new PreySense.Frontend.ViewModels.MainViewModel(hw);
+
+            Assert.IsFalse(vm.IsBiosDiscreteGpuActive);
+            Assert.AreEqual(-1, vm.ActiveGpuMuxMode);
+            Assert.IsFalse(vm.IsFirmwareGpuMuxSupported);
             Assert.IsFalse(vm.IsDgpuOnlySupported);
             Assert.IsFalse(vm.ShowDgpuOnlyTile);
 

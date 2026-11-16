@@ -103,10 +103,17 @@ namespace PreySense.Frontend.ViewModels
         [NotifyPropertyChangedFor(nameof(ShowDdsGpuTiles))]
         private bool _isBiosDiscreteGpuActive;
 
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(ShowDgpuOnlyTile))]
+        [NotifyPropertyChangedFor(nameof(IsDgpuOnlySupported))]
+        [NotifyPropertyChangedFor(nameof(GpuModeTileColumns))]
+        private bool _isFirmwareGpuMuxSupported;
+
         public bool ShowDdsGpuTiles => !IsBiosDiscreteGpuActive;
         public bool ShowIgpuOnlyTile => ShowDdsGpuTiles && !IsGpuNvidiaOnlyActive;
         public bool ShowAdvancedOptimusTile => ShowDdsGpuTiles && !IsGpuIgpuOnlyActive;
-        public bool IsDgpuOnlySupported => IsBiosDiscreteGpuActive || (!IsGpuIgpuOnlyActive && ActiveGpuMuxMode >= 0);
+        // Laptops with a BIOS hardware MUX (Acer WMI GetGpuMuxMode) support dGPU Only even without NVIDIA DDS/Advanced Optimus.
+        public bool IsDgpuOnlySupported => IsBiosDiscreteGpuActive || (!IsGpuIgpuOnlyActive && (IsFirmwareGpuMuxSupported || ActiveGpuMuxMode >= 0));
         public bool ShowDgpuOnlyTile => IsDgpuOnlySupported;
         public int GpuModeTileColumns
         {
@@ -540,12 +547,6 @@ namespace PreySense.Frontend.ViewModels
             if (_hw.IsDiscreteGpuDisabled == true)
             {
                 reason = "Cannot switch to dGPU Only while the NVIDIA GPU is disabled.";
-                return false;
-            }
-
-            if (!_hw.IsDdsAvailable || !_hw.IsDdsSupported() || _hw.GetDdsStatus() is not { IsSupported: true })
-            {
-                reason = "dGPU Only mode is blocked because this laptop does not have a supported hardware display MUX.";
                 return false;
             }
 
